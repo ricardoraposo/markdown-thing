@@ -1,7 +1,8 @@
-import { basicSetup } from "codemirror";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
+import { bracketMatching, defaultHighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { Compartment, EditorState, Prec, StateEffect } from "@codemirror/state";
-import { keymap, EditorView } from "@codemirror/view";
+import { drawSelection, dropCursor, highlightSpecialChars, keymap, EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { livePreview, setPreviewContext } from "./livePreview";
 import { darkEditorTheme, lightEditorTheme } from "../theme/editorThemes";
@@ -54,7 +55,15 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
     extensions: [
       lineSeparatorCompartment.of(EditorState.lineSeparator.of(initialDocument.lineSeparator)),
       vim(),
-      basicSetup,
+      highlightSpecialChars(),
+      history(),
+      drawSelection(),
+      dropCursor(),
+      EditorState.allowMultipleSelections.of(true),
+      indentOnInput(),
+      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      bracketMatching(),
+      keymap.of([...defaultKeymap, ...historyKeymap]),
       markdown(),
       EditorView.lineWrapping,
       shortcuts,

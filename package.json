@@ -23,7 +23,6 @@
     "@lezer/common": "^1.2.3",
     "@replit/codemirror-vim": "^6.3.0",
     "@tauri-apps/api": "^2.11.1",
-    "codemirror": "^6.0.2",
     "mermaid": "^11.16.0"
   },
   "devDependencies": {
