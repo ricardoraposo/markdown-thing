@@ -93,6 +93,7 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
   });
   const view = new EditorView({ state, parent: options.parent });
   let currentTheme = options.theme;
+  let currentPath: string | null | undefined;
 
   return {
     view,
@@ -106,8 +107,10 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
       });
     },
     setContext(path, theme) {
+      if (path === currentPath && theme === currentTheme) return;
       const effects: StateEffect<unknown>[] = [setPreviewContext.of({ documentPath: path, theme })];
       if (theme !== currentTheme) effects.push(themeCompartment.reconfigure(theme === "dark" ? darkEditorTheme : lightEditorTheme));
+      currentPath = path;
       currentTheme = theme;
       view.dispatch({ effects });
     },

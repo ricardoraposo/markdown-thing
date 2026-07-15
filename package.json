@@ -28,7 +28,8 @@
     "@shikijs/langs": "^4.3.1",
     "@shikijs/themes": "^4.3.1",
     "@tauri-apps/api": "^2.11.1",
-    "mermaid": "^11.16.0"
+    "mermaid": "^11.16.0",
+    "solid-js": "1.9.14"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
@@ -36,6 +37,7 @@
     "jsdom": "^26.1.0",
     "typescript": "^7.0.2",
     "vite": "^8.1.4",
+    "vite-plugin-solid": "2.11.12",
     "vitest": "^3.2.4"
   }
 }

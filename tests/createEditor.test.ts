@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEditor, type MarkdownEditor } from "../src/editor/createEditor";
 
 if (!Range.prototype.getClientRects) {
@@ -32,6 +32,7 @@ describe("createEditor", () => {
       onChange: () => undefined,
       onCursor: () => undefined,
     });
+    const dispatch = vi.spyOn(editor.view, "dispatch");
 
     expect(editor.view.dom.querySelector(".cm-lineNumbers")).toBeNull();
     editor.setLineNumbers(true);
@@ -39,5 +40,12 @@ describe("createEditor", () => {
     expect(editor.text()).toBe("first\nsecond");
     editor.setLineNumbers(false);
     expect(editor.view.dom.querySelector(".cm-lineNumbers")).toBeNull();
+
+    editor.setContext(null, "light");
+    const afterFirstContext = dispatch.mock.calls.length;
+    editor.setContext(null, "light");
+    expect(dispatch).toHaveBeenCalledTimes(afterFirstContext);
+    editor.setContext("/notes/file.md", "light");
+    expect(dispatch).toHaveBeenCalledTimes(afterFirstContext + 1);
   });
 });

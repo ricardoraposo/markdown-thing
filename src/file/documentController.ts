@@ -39,6 +39,7 @@ export class DocumentController {
   private readonly tabs: DocumentTab[];
   private activeId = 1;
   private nextId = 2;
+  private disposed = false;
 
   constructor(private readonly options: DocumentControllerOptions) {
     const text = options.getText();
@@ -47,37 +48,33 @@ export class DocumentController {
   }
 
   get state(): DocumentState {
-    this.captureActiveText();
-    const active = this.activeTab();
-    return {
-      path: active.path,
-      name: active.name,
-      dirty: active.text !== active.savedText,
-      tabs: this.tabs.map((tab) => ({
-        id: tab.id,
-        path: tab.path,
-        name: tab.name,
-        dirty: tab.text !== tab.savedText,
-        active: tab.id === this.activeId,
-      })),
-    };
+    if (!this.disposed) this.captureActiveText();
+    return this.snapshot();
   }
 
-  changed(): void {
-    this.captureActiveText();
-    this.emit();
+  changed(text?: string): void {
+    if (this.disposed) return;
+    const active = this.activeTab();
+    const wasDirty = active.text !== active.savedText;
+    active.text = text ?? this.options.getText();
+    if (wasDirty !== (active.text !== active.savedText)) this.emit();
+  }
+
+  dispose(): void {
+    this.disposed = true;
   }
 
   async openInitial(): Promise<void> {
     try {
       const opened = await this.options.files.initial();
-      if (opened) this.openDocument(opened);
+      if (!this.disposed && opened) this.openDocument(opened);
     } catch (error) {
-      this.fail(error);
+      if (!this.disposed) this.fail(error);
     }
   }
 
   openDocument(opened: OpenedDocument): void {
+    if (this.disposed) return;
     this.captureActiveText();
     const existing = this.tabs.find((tab) => tab.path === opened.path);
     if (existing) {
@@ -103,7 +100,7 @@ export class DocumentController {
   }
 
   switchTo(tabId: number): void {
-    if (tabId === this.activeId) return;
+    if (this.disposed || tabId === this.activeId) return;
     const target = this.tabs.find((tab) => tab.id === tabId);
     if (!target) return;
     this.captureActiveText();
@@ -113,18 +110,20 @@ export class DocumentController {
   }
 
   switchRelative(offset: number): void {
-    if (this.tabs.length < 2) return;
+    if (this.disposed || this.tabs.length < 2) return;
     const current = this.tabs.findIndex((tab) => tab.id === this.activeId);
     const index = (current + offset + this.tabs.length) % this.tabs.length;
     this.switchTo(this.tabs[index]!.id);
   }
 
   switchToIndex(index: number): void {
+    if (this.disposed) return;
     const tab = this.tabs[index];
     if (tab) this.switchTo(tab.id);
   }
 
   async save(): Promise<void> {
+    if (this.disposed) return;
     this.captureActiveText();
     const tab = this.activeTab();
     if (!tab.path) {
@@ -136,12 +135,13 @@ export class DocumentController {
     const content = tab.text;
     try {
       await this.options.files.save(path, content);
+      if (this.disposed) return;
       const savedTab = this.tabs.find((candidate) => candidate.id === tabId && candidate.path === path);
       if (!savedTab) return;
       savedTab.savedText = content;
       this.emit();
     } catch (error) {
-      this.fail(error);
+      if (!this.disposed) this.fail(error);
     }
   }
 
@@ -153,11 +153,27 @@ export class DocumentController {
     this.activeTab().text = this.options.getText();
   }
 
+  private snapshot(): DocumentState {
+    const active = this.activeTab();
+    return {
+      path: active.path,
+      name: active.name,
+      dirty: active.text !== active.savedText,
+      tabs: this.tabs.map((tab) => ({
+        id: tab.id,
+        path: tab.path,
+        name: tab.name,
+        dirty: tab.text !== tab.savedText,
+        active: tab.id === this.activeId,
+      })),
+    };
+  }
+
   private emit(): void {
-    this.options.onState(this.state);
+    if (!this.disposed) this.options.onState(this.snapshot());
   }
 
   private fail(error: unknown): void {
-    this.options.onError(error instanceof Error ? error.message : String(error));
+    if (!this.disposed) this.options.onError(error instanceof Error ? error.message : String(error));
   }
 }

@@ -30,6 +30,11 @@ export class ThemeController {
     return () => this.listeners.delete(listener);
   }
 
+  destroy(): void {
+    this.media.removeEventListener("change", this.onSystemChange);
+    this.listeners.clear();
+  }
+
   private readonly onSystemChange = (): void => { if (this.preference === "system") this.apply(); };
   private apply(): void {
     document.documentElement.dataset.theme = this.resolved;

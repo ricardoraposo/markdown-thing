@@ -19,7 +19,7 @@ function setup(files: FileAdapter, initial = "initial") {
     controller,
     states,
     errors,
-    setText: (value: string) => { text = value; controller.changed(); },
+    setText: (value: string) => { text = value; controller.changed(value); },
     text: () => text,
   };
 }
@@ -111,6 +111,62 @@ describe("DocumentController", () => {
     finishSave?.({ path: "/notes/race.md" });
     await saving;
     expect(subject.controller.state.dirty).toBe(true);
+  });
+
+  it("emits shell state only when an edit crosses the dirty boundary", () => {
+    let reads = 0;
+    let text = "saved";
+    const states: DocumentState[] = [];
+    const controller = new DocumentController({
+      files: adapter(),
+      getText: () => { reads += 1; return text; },
+      setText: (value) => { text = value; },
+      onState: (state) => states.push(state),
+      onError: () => undefined,
+    });
+    const initialReads = reads;
+    const initialStates = states.length;
+
+    controller.changed("first edit");
+    expect(reads).toBe(initialReads);
+    expect(states).toHaveLength(initialStates + 1);
+    controller.changed("second edit");
+    expect(reads).toBe(initialReads);
+    expect(states).toHaveLength(initialStates + 1);
+    controller.changed("saved");
+    expect(states).toHaveLength(initialStates + 2);
+    expect(states.at(-1)?.dirty).toBe(false);
+  });
+
+  it("ignores initial and save completions after disposal", async () => {
+    let finishInitial: ((document: { path: string; content: string }) => void) | undefined;
+    let finishSave: ((document: { path: string }) => void) | undefined;
+    const pendingInitial = new Promise<{ path: string; content: string }>((resolve) => { finishInitial = resolve; });
+    const pendingSave = new Promise<{ path: string }>((resolve) => { finishSave = resolve; });
+    const files = adapter({
+      initial: () => pendingInitial,
+      save: () => pendingSave,
+    });
+    const subject = setup(files);
+    const opening = subject.controller.openInitial();
+    subject.controller.dispose();
+    finishInitial?.({ path: "/notes/late.md", content: "late" });
+    await opening;
+    expect(subject.text()).toBe("initial");
+    expect(subject.states).toHaveLength(1);
+
+    const second = setup(adapter({
+      initial: async () => ({ path: "/notes/save.md", content: "saved" }),
+      save: () => pendingSave,
+    }));
+    await second.controller.openInitial();
+    second.setText("changed");
+    const saving = second.controller.save();
+    const stateCount = second.states.length;
+    second.controller.dispose();
+    finishSave?.({ path: "/notes/save.md" });
+    await saving;
+    expect(second.states).toHaveLength(stateCount);
   });
 
   it("opens and saves a CRLF document without changing its line endings", async () => {
