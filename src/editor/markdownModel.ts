@@ -30,7 +30,7 @@ export function markdownConstructs(source: string, tree: Tree): PreviewConstruct
       const node = nodeRef.node;
       const name = node.name;
       const parts = children(node);
-      if (name === "ListItem") {
+      if (name === "ListItem" && node.parent?.name === "BulletList") {
         const listMark = parts.find((part) => part.name === "ListMark");
         const task = parts.find((part) => part.name === "Task");
         const taskMarker = task?.firstChild?.name === "TaskMarker" ? task.firstChild : null;

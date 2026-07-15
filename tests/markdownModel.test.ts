@@ -38,6 +38,11 @@ describe("markdownConstructs", () => {
     expect(source).toBe("- item\n\n---\n\n- [ ] open\n- [x] done\n");
   });
 
+  it("leaves ordered-list numbers intact and renders quoted bullet tasks", () => {
+    expect(parse("1. item\n2. [ ] ordered\n").filter(({ kind }) => kind === "bullet" || kind === "task")).toEqual([]);
+    expect(parse("> - [ ] quoted\n").map(({ kind }) => kind)).toEqual(["task"]);
+  });
+
   it("does not hide incomplete syntax", () => {
     expect(parse("A **half finished")).toEqual([]);
   });

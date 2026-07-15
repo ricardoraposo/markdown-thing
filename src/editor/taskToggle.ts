@@ -1,18 +1,31 @@
+import { syntaxTree } from "@codemirror/language";
 import type { EditorState } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
+import type { SyntaxNode } from "@lezer/common";
 
 export interface TaskToggleChange {
   from: number;
   insert: " " | "x";
 }
 
-export function taskToggleChange(state: EditorState, position = state.selection.main.head): TaskToggleChange | null {
+function taskMarkerAt(state: EditorState, position: number): SyntaxNode | null {
   const line = state.doc.lineAt(position);
-  const match = /^(\s*[-+*]\s+\[)([ xX])\]/.exec(line.text);
-  if (!match?.[1] || !match[2]) return null;
+  const side = position === line.to ? -1 : 1;
+  let node: SyntaxNode | null = syntaxTree(state).resolveInner(position, side);
+  while (node && node.name !== "ListItem") node = node.parent;
+  if (!node || node.parent?.name !== "BulletList") return null;
+  const task = node.getChild("Task");
+  return task?.getChild("TaskMarker") ?? null;
+}
+
+export function taskToggleChange(state: EditorState, position = state.selection.main.head): TaskToggleChange | null {
+  const marker = taskMarkerAt(state, position);
+  if (!marker) return null;
+  const value = state.sliceDoc(marker.from, marker.to);
+  if (!/^\[[ xX]\]$/.test(value)) return null;
   return {
-    from: line.from + match[1].length,
-    insert: match[2] === " " ? "x" : " ",
+    from: marker.from + 1,
+    insert: value[1] === " " ? "x" : " ",
   };
 }
 
