@@ -56,6 +56,20 @@ describe("DocumentController", () => {
     expect(subject.controller.state.path).toBe("/notes/one.md");
   });
 
+  it("switches tabs relatively and by number", async () => {
+    const subject = setup(adapter({ initial: async () => ({ path: "/notes/one.md", content: "one" }) }));
+    await subject.controller.openInitial();
+    subject.controller.openDocument({ path: "/notes/two.md", content: "two" });
+    subject.controller.openDocument({ path: "/notes/three.md", content: "three" });
+
+    subject.controller.switchRelative(-1);
+    expect(subject.controller.state.name).toBe("two.md");
+    subject.controller.switchRelative(1);
+    expect(subject.controller.state.name).toBe("three.md");
+    subject.controller.switchToIndex(0);
+    expect(subject.controller.state.name).toBe("one.md");
+  });
+
   it("focuses an existing tab without overwriting unsaved text", async () => {
     const subject = setup(adapter({ initial: async () => ({ path: "/notes/one.md", content: "one" }) }));
     await subject.controller.openInitial();

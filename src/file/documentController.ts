@@ -112,6 +112,18 @@ export class DocumentController {
     this.emit();
   }
 
+  switchRelative(offset: number): void {
+    if (this.tabs.length < 2) return;
+    const current = this.tabs.findIndex((tab) => tab.id === this.activeId);
+    const index = (current + offset + this.tabs.length) % this.tabs.length;
+    this.switchTo(this.tabs[index]!.id);
+  }
+
+  switchToIndex(index: number): void {
+    const tab = this.tabs[index];
+    if (tab) this.switchTo(tab.id);
+  }
+
   async save(): Promise<void> {
     this.captureActiveText();
     const tab = this.activeTab();

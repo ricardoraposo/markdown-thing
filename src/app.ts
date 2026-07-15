@@ -18,6 +18,7 @@ markdown-thing README.md
 - Press \`Esc\` to return to Normal mode
 - Press **Ctrl+S** to save
 - Press **Ctrl+,** for settings
+- Press **Alt+J** / **Alt+K** to switch tabs
 `;
 
 export function mountApp(root: HTMLElement): void {
@@ -101,6 +102,9 @@ export function mountApp(root: HTMLElement): void {
     actions: {
       save: () => { void controller.save(); },
       settings: openSettings,
+      nextTab: () => controller.switchRelative(1),
+      previousTab: () => controller.switchRelative(-1),
+      selectTab: (index) => controller.switchToIndex(index),
     },
     onChange: () => controller?.changed(),
     onCursor: (line, column) => { position.textContent = `Ln ${line}, Col ${column}`; },
