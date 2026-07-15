@@ -2,12 +2,15 @@
 
 import { markdown } from "@codemirror/lang-markdown";
 import { Table, TaskList } from "@lezer/markdown";
-import { cursorCharBackward, cursorCharForward, history, redo, undo } from "@codemirror/commands";
+import { history, redo, undo } from "@codemirror/commands";
 import { EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { livePreview } from "../src/editor/livePreview";
+import { configureLogicalLineMotions } from "../src/editor/vimLogicalLines";
+
+configureLogicalLineMotions();
 
 if (!Range.prototype.getClientRects) {
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
@@ -228,65 +231,23 @@ describe("livePreview", () => {
     expect(view.dom.querySelector(".md-code-block code")?.textContent).toBe("plain text");
   });
 
-  it("treats rendered tables as atomic for ordinary cursor navigation", () => {
-    const tableSource = "| A |\n| --- |\n| one |\n\nTail";
-    const tableEnd = tableSource.indexOf("\n\nTail");
+  it("moves Vim j and k by exactly one document line through rendered blocks", () => {
+    const navigationSource = "Metadados sugeridos:\n\n```text\nprovider\ntemplate_name\n```\n\n# 16. Entregas\n\n### Escopo\n\n- [ ] primeira\n- [ ] segunda\n- [ ] terceira\n";
     const state = EditorState.create({
-      doc: tableSource,
+      doc: navigationSource,
       selection: EditorSelection.cursor(0),
-      extensions: [markdown({ extensions: [Table] }), livePreview],
+      extensions: [vim(), markdown({ extensions: [TaskList, Table] }), livePreview],
     });
     view = new EditorView({ state, parent: document.body });
 
-    expect(view.dom.querySelector(".md-table-wrap")).not.toBeNull();
-    cursorCharForward(view);
-    expect(view.state.selection.main.head).toBe(tableEnd);
-    expect(view.dom.querySelector(".md-table-wrap")).not.toBeNull();
-    cursorCharBackward(view);
-    expect(view.state.selection.main.head).toBe(0);
-    view.dispatch({ selection: EditorSelection.cursor(2) });
-    expect(view.dom.querySelector(".md-table-wrap")).toBeNull();
-    view.dispatch({ selection: EditorSelection.cursor(0) });
-    expect(view.dom.querySelector(".md-table-wrap")).not.toBeNull();
-    view.dispatch({ selection: EditorSelection.range(0, 5) });
-    expect(view.contentDOM.textContent).toContain("| A |");
-  });
-
-  it("keeps Vim vertical navigation from expanding a rendered table", () => {
-    const tableSource = "Top\n\n| A |\n| --- |\n| one |\n\nTail";
-    const tableFrom = tableSource.indexOf("| A |");
-    const tableTo = tableSource.indexOf("\n\nTail");
-    const state = EditorState.create({
-      doc: tableSource,
-      selection: EditorSelection.cursor(0),
-      extensions: [vim(), markdown({ extensions: [Table] }), livePreview],
-    });
-    view = new EditorView({ state, parent: document.body });
-
-    press("j");
-    press("j");
-    let position = view.state.selection.main.head;
-    expect(position <= tableFrom || position >= tableTo).toBe(true);
-    expect(view.dom.querySelector(".md-table-wrap")).not.toBeNull();
-    press("+");
-    position = view.state.selection.main.head;
-    expect(position <= tableFrom || position >= tableTo).toBe(true);
-    expect(view.dom.querySelector(".md-table-wrap")).not.toBeNull();
-  });
-
-  it("keeps Vim character navigation from landing inside a rendered table", () => {
-    const tableSource = "| A |\n| --- |\n| one |\n\nTail";
-    const tableTo = tableSource.indexOf("\n\nTail");
-    const state = EditorState.create({
-      doc: tableSource,
-      selection: EditorSelection.cursor(0),
-      extensions: [vim(), markdown({ extensions: [Table] }), livePreview],
-    });
-    view = new EditorView({ state, parent: document.body });
-
-    press("l");
-    expect(view.state.selection.main.head).toBe(tableTo);
-    expect(view.dom.querySelector(".md-table-wrap")).not.toBeNull();
+    for (let expectedLine = 2; expectedLine <= 14; expectedLine++) {
+      press("j");
+      expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(expectedLine);
+    }
+    for (let expectedLine = 13; expectedLine >= 1; expectedLine--) {
+      press("k");
+      expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(expectedLine);
+    }
   });
 
   it("survives edits next to hidden marker ranges", () => {

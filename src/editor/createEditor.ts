@@ -10,6 +10,7 @@ import { darkEditorTheme, lightEditorTheme } from "../theme/editorThemes";
 import type { ResolvedTheme } from "../theme/themeController";
 import { prepareDocument, serializeDocument } from "./lineEndings";
 import { taskLeaderBinding } from "./vimTaskMapping";
+import { configureLogicalLineMotions } from "./vimLogicalLines";
 
 export interface EditorActions {
   save(): void;
@@ -40,6 +41,7 @@ export interface MarkdownEditor {
 }
 
 export function createEditor(options: EditorOptions): MarkdownEditor {
+  configureLogicalLineMotions();
   const themeCompartment = new Compartment();
   const lineSeparatorCompartment = new Compartment();
   const leaderCompartment = new Compartment();
