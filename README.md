@@ -37,6 +37,8 @@ pnpm run tauri:dev
 
 `pnpm run dev` starts the web frontend alone, but command-line file loading and relative local images require the Tauri application.
 
+The frontend uses Solid for the application shell—tabs, status, and settings—while CodeMirror owns the editor DOM and remains the sole source of document text. Markdown rendering stays in CodeMirror decorations and widgets rather than Solid components or a separate preview tree.
+
 ## Use
 
 Open a file from its directory or with an absolute path. Release builds return control to the terminal immediately. Opening another file while the app is running adds or focuses its tab.
@@ -55,6 +57,7 @@ The editor starts in Vim Normal mode.
 | Save active file | `Ctrl+S` |
 | Settings | `Ctrl+,` |
 | Toggle task under cursor | `<leader>x` (default leader: `\\`) |
+| Yank to system clipboard | `y` with any Vim motion or visual selection |
 | Previous / next tab | `Alt+J` / `Alt+K` |
 | Select tab 1–9 | `Alt+1` … `Alt+9` |
 | Search | `/` in Normal mode |
