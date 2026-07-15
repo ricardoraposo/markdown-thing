@@ -52,7 +52,7 @@ The editor starts in Vim Normal mode.
 | Return to Normal mode | `Esc` |
 | Save active file | `Ctrl+S` |
 | Settings | `Ctrl+,` |
-| Next / previous tab | `Alt+J` / `Alt+K` |
+| Previous / next tab | `Alt+J` / `Alt+K` |
 | Select tab 1–9 | `Alt+1` … `Alt+9` |
 | Search | `/` in Normal mode |
 | Undo / redo | `u` / `Ctrl+R` in Normal mode |

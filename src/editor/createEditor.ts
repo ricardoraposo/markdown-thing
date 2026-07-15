@@ -41,8 +41,8 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
   const shortcuts = Prec.highest(keymap.of([
     { key: "Ctrl-s", preventDefault: true, run: () => { options.actions.save(); return true; } },
     { key: "Ctrl-,", preventDefault: true, run: () => { options.actions.settings(); return true; } },
-    { key: "Alt-j", preventDefault: true, run: () => { options.actions.nextTab(); return true; } },
-    { key: "Alt-k", preventDefault: true, run: () => { options.actions.previousTab(); return true; } },
+    { key: "Alt-j", preventDefault: true, run: () => { options.actions.previousTab(); return true; } },
+    { key: "Alt-k", preventDefault: true, run: () => { options.actions.nextTab(); return true; } },
     ...Array.from({ length: 9 }, (_, index) => ({
       key: `Alt-${index + 1}`,
       preventDefault: true,
