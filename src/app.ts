@@ -1,6 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { createEditor, type MarkdownEditor } from "./editor/createEditor";
 import { describeLeader, loadLeader, normalizeLeader, saveLeader } from "./editor/leaderPreference";
+import { loadLineNumbers, saveLineNumbers } from "./editor/lineNumberPreference";
 import { DocumentController, type DocumentState } from "./file/documentController";
 import { tauriFiles } from "./file/tauriFiles";
 import { ThemeController, type ThemePreference } from "./theme/themeController";
@@ -44,6 +45,10 @@ export function mountApp(root: HTMLElement): void {
               <option value="dark">Dark</option>
             </select>
           </label>
+          <label class="setting-row" for="line-numbers">
+            <span><strong>Line numbers</strong><small>Show document line numbers beside the editor.</small></span>
+            <input id="line-numbers" class="setting-checkbox" type="checkbox">
+          </label>
           <label class="setting-row" for="leader-key">
             <span><strong>Vim leader</strong><small>Press this key, then x, to toggle a task.</small></span>
             <button id="leader-key" class="key-capture" type="button" title="Click, then press a key"></button>
@@ -61,9 +66,12 @@ export function mountApp(root: HTMLElement): void {
   const settings = root.querySelector<HTMLDialogElement>("#settings")!;
   const themeSelect = root.querySelector<HTMLSelectElement>("#theme")!;
   const leaderButton = root.querySelector<HTMLButtonElement>("#leader-key")!;
+  const lineNumbersToggle = root.querySelector<HTMLInputElement>("#line-numbers")!;
   const themes = new ThemeController();
   let leader = loadLeader();
+  let showLineNumbers = loadLineNumbers();
   themeSelect.value = themes.value;
+  lineNumbersToggle.checked = showLineNumbers;
   leaderButton.textContent = describeLeader(leader);
 
   let editor: MarkdownEditor;
@@ -108,6 +116,7 @@ export function mountApp(root: HTMLElement): void {
     initialDocument: WELCOME,
     theme: themes.resolved,
     leader,
+    lineNumbers: showLineNumbers,
     actions: {
       save: () => { void controller.save(); },
       settings: openSettings,
@@ -134,6 +143,11 @@ export function mountApp(root: HTMLElement): void {
     }
   });
   themeSelect.addEventListener("change", () => themes.set(themeSelect.value as ThemePreference));
+  lineNumbersToggle.addEventListener("change", () => {
+    showLineNumbers = lineNumbersToggle.checked;
+    saveLineNumbers(showLineNumbers);
+    editor.setLineNumbers(showLineNumbers);
+  });
   let capturingLeader = false;
   leaderButton.addEventListener("click", () => {
     capturingLeader = true;

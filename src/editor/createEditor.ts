@@ -3,7 +3,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { Table, TaskList } from "@lezer/markdown";
 import { bracketMatching, defaultHighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { Compartment, EditorState, Prec, StateEffect } from "@codemirror/state";
-import { drawSelection, dropCursor, highlightSpecialChars, keymap, EditorView } from "@codemirror/view";
+import { drawSelection, dropCursor, highlightSpecialChars, keymap, lineNumbers, EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { livePreview, setPreviewContext } from "./livePreview";
 import { darkEditorTheme, lightEditorTheme } from "../theme/editorThemes";
@@ -25,6 +25,7 @@ export interface EditorOptions {
   initialDocument: string;
   theme: ResolvedTheme;
   leader: string;
+  lineNumbers: boolean;
   actions: EditorActions;
   onChange(text: string): void;
   onCursor(line: number, column: number): void;
@@ -36,6 +37,7 @@ export interface MarkdownEditor {
   replace(text: string): void;
   setContext(path: string | null, theme: ResolvedTheme): void;
   setLeader(leader: string): void;
+  setLineNumbers(enabled: boolean): void;
   focus(): void;
   destroy(): void;
 }
@@ -45,6 +47,7 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
   const themeCompartment = new Compartment();
   const lineSeparatorCompartment = new Compartment();
   const leaderCompartment = new Compartment();
+  const lineNumbersCompartment = new Compartment();
   const initialDocument = prepareDocument(options.initialDocument);
   const shortcuts = Prec.highest(keymap.of([
     { key: "Ctrl-s", preventDefault: true, run: () => { options.actions.save(); return true; } },
@@ -63,6 +66,7 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
       lineSeparatorCompartment.of(EditorState.lineSeparator.of(initialDocument.lineSeparator)),
       vim(),
       leaderCompartment.of(taskLeaderBinding(options.leader)),
+      lineNumbersCompartment.of(options.lineNumbers ? lineNumbers() : []),
       highlightSpecialChars(),
       history(),
       drawSelection(),
@@ -109,6 +113,9 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
     },
     setLeader(leader) {
       view.dispatch({ effects: leaderCompartment.reconfigure(taskLeaderBinding(leader)) });
+    },
+    setLineNumbers(enabled) {
+      view.dispatch({ effects: lineNumbersCompartment.reconfigure(enabled ? lineNumbers() : []) });
     },
     focus: () => view.focus(),
     destroy: () => view.destroy(),
