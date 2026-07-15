@@ -24,6 +24,7 @@ export interface EmbeddedCodeEditorOptions {
   parentView: EditorView;
   source: string;
   language: string;
+  singleLine?: boolean;
   onChange(source: string, userEvent: string): void;
   onExit(direction?: "forward" | "backward"): void;
 }
@@ -41,6 +42,11 @@ export function createEmbeddedCodeEditor(options: EmbeddedCodeEditorOptions): Em
   let language = options.language;
   const exitHandler = Prec.highest(EditorView.domEventHandlers({
     keydown(event, view) {
+      if (options.singleLine && event.key === "Enter") {
+        event.preventDefault();
+        options.onExit();
+        return true;
+      }
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
         event.preventDefault();
         options.onExit();
@@ -89,10 +95,11 @@ export function createEmbeddedCodeEditor(options: EmbeddedCodeEditorOptions): Em
         drawSelection(),
         EditorState.tabSize.of(2),
         EditorState.allowMultipleSelections.of(true),
+        EditorState.changeFilter.of((transaction) => !options.singleLine || !transaction.newDoc.toString().includes("\n")),
         keymap.of(defaultKeymap),
         EditorView.contentAttributes.of({
           "aria-label": `${language || "Code"} block editor`,
-          "aria-multiline": "true",
+          "aria-multiline": String(!options.singleLine),
           spellcheck: "false",
           autocapitalize: "off",
           autocomplete: "off",

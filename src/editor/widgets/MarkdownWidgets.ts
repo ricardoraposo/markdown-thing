@@ -1,4 +1,3 @@
-import { redo, undo } from "@codemirror/commands";
 import { WidgetType, type EditorView } from "@codemirror/view";
 import { toggleTask } from "../taskToggle";
 import type { TableCellPreview, TableInlinePart, TablePreview } from "../markdownModel";
@@ -49,10 +48,6 @@ function replaceWithMinimalChange(view: EditorView, from: number, current: strin
   });
 }
 
-function inputUserEvent(event: Event): string {
-  return event instanceof InputEvent && event.inputType === "insertFromPaste" ? "input.paste" : "input.type";
-}
-
 function restoreVimResumePosition(element: HTMLElement, view: EditorView, startBase: number, endBase: number, direction?: "forward" | "backward"): void {
   const anchor = direction === "forward" ? "end" : direction === "backward" ? "start" : element.dataset.mdVimResumeAnchor;
   const value = anchor === "end" ? element.dataset.mdVimResumeEndOffset : element.dataset.mdVimResumeStartOffset;
@@ -72,8 +67,9 @@ interface TableController {
     header: boolean;
     row: number;
     column: number;
-    input: HTMLInputElement;
-    composing: boolean;
+    goalColumn: number;
+    mount: HTMLElement;
+    embedded?: EmbeddedCodeEditorHandle;
   };
 }
 
@@ -88,14 +84,29 @@ function renderTableCell(element: HTMLTableCellElement, cell: TableCellPreview):
   element.replaceChildren(...cell.parts.map(renderTablePart));
 }
 
-function finishTableCell(wrapper: HTMLElement, focusEditor = false, restoreCellFocus = false): void {
+function finishTableCell(
+  wrapper: HTMLElement,
+  focusEditor = false,
+  restoreCellFocus = false,
+  direction?: "forward" | "backward",
+  restoreParent = true,
+): void {
   const controller = tableControllers.get(wrapper);
   const editing = controller?.editing;
   if (!controller || !editing) return;
   const cell = tableCell(controller.widget, editing.header, editing.row, editing.column);
-  const element = editing.input.closest<HTMLTableCellElement>("th, td");
-  restoreVimResumePosition(wrapper, controller.view, controller.widget.editPos, controller.widget.editPos + controller.widget.source.length);
+  const element = editing.mount.closest<HTMLTableCellElement>("th, td");
+  if (restoreParent) {
+    restoreVimResumePosition(
+      wrapper,
+      controller.view,
+      controller.widget.editPos,
+      controller.widget.editPos + controller.widget.source.length,
+      direction,
+    );
+  }
   controller.editing = undefined;
+  editing.embedded?.destroy();
   if (cell && element) {
     renderTableCell(element, cell);
     if (restoreCellFocus) element.focus();
@@ -103,57 +114,74 @@ function finishTableCell(wrapper: HTMLElement, focusEditor = false, restoreCellF
   if (focusEditor) controller.view.focus();
 }
 
-function startTableCell(wrapper: HTMLElement, header: boolean, row: number, column: number): void {
+function adjacentTableLocation(
+  widget: TableWidget,
+  header: boolean,
+  row: number,
+  goalColumn: number,
+  direction: "forward" | "backward",
+): { header: boolean; row: number; column: number; goalColumn: number } | null {
+  const current = header ? 0 : row + 1;
+  const next = current + (direction === "forward" ? 1 : -1);
+  if (next < 0 || next > widget.table.rows.length) return null;
+  const nextHeader = next === 0;
+  const nextRow = nextHeader ? 0 : next - 1;
+  const cells = nextHeader ? widget.table.header : widget.table.rows[nextRow] ?? [];
+  if (!cells.length) return null;
+  return { header: nextHeader, row: nextRow, column: Math.min(goalColumn, cells.length - 1), goalColumn };
+}
+
+function moveTableCell(wrapper: HTMLElement, direction: "forward" | "backward"): void {
+  const controller = tableControllers.get(wrapper);
+  const editing = controller?.editing;
+  if (!controller || !editing) return;
+  const next = adjacentTableLocation(controller.widget, editing.header, editing.row, editing.goalColumn, direction);
+  if (!next) {
+    finishTableCell(wrapper, true, false, direction);
+    return;
+  }
+  finishTableCell(wrapper, false, false, undefined, false);
+  startTableCell(wrapper, next.header, next.row, next.column, next.goalColumn);
+}
+
+function startTableCell(wrapper: HTMLElement, header: boolean, row: number, column: number, goalColumn = column): void {
   const controller = tableControllers.get(wrapper);
   if (!controller) return;
-  if (controller.editing) finishTableCell(wrapper);
+  if (controller.editing) finishTableCell(wrapper, false, false, undefined, false);
   const cell = tableCell(controller.widget, header, row, column);
   const selector = `[data-md-header="${String(header)}"][data-md-row="${row}"][data-md-column="${column}"]`;
   const element = wrapper.querySelector<HTMLTableCellElement>(selector);
   if (!cell || !element) return;
 
-  const input = document.createElement("input");
-  input.type = "text";
-  input.className = "md-table-cell-input";
-  input.value = cell.source;
-  input.setAttribute("aria-label", `${header ? "Header" : `Row ${row + 1}`} column ${column + 1} Markdown`);
-  controller.editing = { header, row, column, input, composing: false };
+  const mount = document.createElement("div");
+  mount.className = "md-table-cell-editor";
+  const editing: NonNullable<TableController["editing"]> = { header, row, column, goalColumn, mount };
+  controller.editing = editing;
   element.classList.add("editing");
-  element.replaceChildren(input);
-
-  input.addEventListener("compositionstart", () => {
-    const current = tableControllers.get(wrapper)?.editing;
-    if (current?.input === input) current.composing = true;
+  element.replaceChildren(mount);
+  editing.embedded = createEmbeddedCodeEditor({
+    mount,
+    parentView: controller.view,
+    source: cell.source,
+    language: "Markdown",
+    singleLine: true,
+    onChange(source, userEvent) {
+      const current = tableControllers.get(wrapper);
+      const metadata = current && tableCell(current.widget, editing.header, editing.row, editing.column);
+      if (!current || !metadata) return;
+      replaceWithMinimalChange(current.view, metadata.from, metadata.source, source, "", userEvent);
+    },
+    onExit(direction) {
+      if (direction) moveTableCell(wrapper, direction);
+      else finishTableCell(wrapper, true);
+    },
   });
-  input.addEventListener("compositionend", () => {
-    const current = tableControllers.get(wrapper)?.editing;
-    if (current?.input === input) current.composing = false;
-  });
-  input.addEventListener("input", (event) => {
-    const current = tableControllers.get(wrapper);
-    const metadata = current && tableCell(current.widget, header, row, column);
-    if (!current || !metadata) return;
-    replaceWithMinimalChange(current.view, metadata.from, metadata.source, input.value, "", inputUserEvent(event));
-  });
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === "Escape") {
-      event.preventDefault();
-      finishTableCell(wrapper, event.key === "Escape", event.key === "Enter");
-    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
-      event.preventDefault();
-      (event.shiftKey ? redo : undo)(controller.view);
-    } else if (event.ctrlKey && event.key.toLowerCase() === "r") {
-      event.preventDefault();
-      redo(controller.view);
-    }
-  });
-  input.addEventListener("blur", () => {
+  mount.addEventListener("focusout", () => {
     queueMicrotask(() => {
       if (!wrapper.contains(document.activeElement)) finishTableCell(wrapper);
     });
   });
-  input.focus();
-  input.select();
+  editing.embedded.focus();
 }
 
 export class TableWidget extends WidgetType {
@@ -199,7 +227,8 @@ export class TableWidget extends WidgetType {
     edit.setAttribute("aria-label", "Edit Markdown table cells");
     edit.addEventListener("click", (event) => {
       event.stopPropagation();
-      startTableCell(wrapper, true, 0, 0);
+      const fromBottom = wrapper.dataset.mdVimResumeAnchor === "start" && this.table.rows.length > 0;
+      startTableCell(wrapper, !fromBottom, fromBottom ? this.table.rows.length - 1 : 0, 0);
     });
     actions.append(edit);
 
@@ -210,13 +239,12 @@ export class TableWidget extends WidgetType {
     this.table.rows.forEach((cells, row) => this.addCells(body.insertRow(), cells, false, row));
     table.setAttribute("aria-label", "Markdown table");
     table.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest(".md-table-cell-editor")) return;
       const cell = event.target instanceof Element ? event.target.closest<HTMLTableCellElement>("th[data-md-column], td[data-md-column]") : null;
-      if (cell && !(event.target instanceof HTMLInputElement)) {
-        startTableCell(wrapper, cell.dataset.mdHeader === "true", Number(cell.dataset.mdRow), Number(cell.dataset.mdColumn));
-      }
+      if (cell) startTableCell(wrapper, cell.dataset.mdHeader === "true", Number(cell.dataset.mdRow), Number(cell.dataset.mdColumn));
     });
     table.addEventListener("keydown", (event) => {
-      if (event.target instanceof HTMLInputElement || (event.key !== "Enter" && event.key !== "F2")) return;
+      if ((event.target instanceof Element && event.target.closest(".md-table-cell-editor")) || (event.key !== "Enter" && event.key !== "F2")) return;
       const cell = event.target instanceof Element ? event.target.closest<HTMLTableCellElement>("th[data-md-column], td[data-md-column]") : null;
       if (!cell) return;
       event.preventDefault();
@@ -235,13 +263,15 @@ export class TableWidget extends WidgetType {
     controller.widget = this;
     controller.view = view;
     dom.dataset.mdEditPos = String(this.editPos);
-    if (!editing.composing && editing.input.value !== cell.source) {
-      const start = editing.input.selectionStart ?? 0;
-      const end = editing.input.selectionEnd ?? start;
-      editing.input.value = cell.source;
-      editing.input.setSelectionRange(Math.min(start, cell.source.length), Math.min(end, cell.source.length));
-    }
+    if (!editing.embedded) return false;
+    editing.embedded.sync(cell.source, "Markdown");
     return true;
+  }
+
+  destroy(dom: HTMLElement): void {
+    const controller = tableControllers.get(dom);
+    controller?.editing?.embedded?.destroy();
+    tableControllers.delete(dom);
   }
 }
 

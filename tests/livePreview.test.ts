@@ -27,11 +27,19 @@ function press(key: string): void {
   view?.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 }
 
-function embeddedCodeView(): EditorView {
-  const editorDOM = view?.dom.querySelector<HTMLElement>(".md-code-editor > .cm-editor");
+function embeddedView(selector: string): EditorView {
+  const editorDOM = view?.dom.querySelector<HTMLElement>(`${selector} > .cm-editor`);
   const embedded = editorDOM ? EditorView.findFromDOM(editorDOM) : null;
-  if (!embedded) throw new Error("Embedded code editor not found");
+  if (!embedded) throw new Error(`Embedded editor not found: ${selector}`);
   return embedded;
+}
+
+function embeddedCodeView(): EditorView {
+  return embeddedView(".md-code-editor");
+}
+
+function embeddedTableView(): EditorView {
+  return embeddedView(".md-table-cell-editor");
 }
 
 function replaceEmbeddedCode(source: string): EditorView {
@@ -100,24 +108,26 @@ describe("livePreview", () => {
     expect(view.dom.querySelector(".md-table-wrap")?.getAttribute("tabindex")).toBe("0");
     expect(view.dom.querySelector(".md-table-wrap code")?.textContent).toBe("one");
     view.dom.querySelector<HTMLButtonElement>(".md-table-wrap .md-block-action")?.click();
-    const input = view.dom.querySelector<HTMLInputElement>(".md-table-cell-input")!;
-    expect(input.value).toBe(" Name ");
-    input.value = " **Project** ";
-    input.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+    const mount = view.dom.querySelector<HTMLElement>(".md-table-cell-editor")!;
+    const cellEditor = embeddedTableView();
+    expect(cellEditor.state.doc.toString()).toBe(" Name ");
+    expect(cellEditor.contentDOM.getAttribute("aria-multiline")).toBe("false");
+    cellEditor.dispatch({ changes: { from: cellEditor.state.doc.length, insert: "\ninvalid" }, userEvent: "input.paste" });
+    expect(cellEditor.state.doc.toString()).toBe(" Name ");
+    expect(view.state.doc.toString()).toBe(tableSource);
+    cellEditor.dispatch({ changes: { from: 0, to: cellEditor.state.doc.length, insert: " **Project** " }, userEvent: "input.type" });
     const editedTable = "| **Project** | Value |\n| :--- | ---: |\n| `one` | 1 |\n\nTail";
     expect(view.state.doc.toString()).toBe(editedTable);
-    expect(view.dom.querySelector(".md-table-cell-input")).toBe(input);
+    expect(view.dom.querySelector(".md-table-cell-editor")).toBe(mount);
     undo(view);
     expect(view.state.doc.toString()).toBe(tableSource);
-    expect(view.dom.querySelector(".md-table-cell-input")).toBe(input);
-    expect(input.value).toBe(" Name ");
+    expect(view.dom.querySelector(".md-table-cell-editor")).toBe(mount);
+    expect(cellEditor.state.doc.toString()).toBe(" Name ");
     redo(view);
     expect(view.state.doc.toString()).toBe(editedTable);
-    expect(view.dom.querySelector(".md-table-cell-input")).toBe(input);
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    const editedCell = view.dom.querySelector<HTMLTableCellElement>(".md-table-wrap th");
-    expect(editedCell?.querySelector("strong")?.textContent).toBe("Project");
-    expect(document.activeElement).toBe(editedCell);
+    expect(view.dom.querySelector(".md-table-cell-editor")).toBe(mount);
+    cellEditor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    expect(view.dom.querySelector(".md-table-wrap th strong")?.textContent).toBe("Project");
   });
 
   it("renders and syntax-highlights inline and fenced code while retaining exact source", async () => {
@@ -300,17 +310,16 @@ describe("livePreview", () => {
     press("j");
     press("j");
     await Promise.resolve();
-    const input = view.dom.querySelector<HTMLInputElement>(".md-table-cell-input");
-    expect(input).not.toBeNull();
-    expect(document.activeElement).toBe(input);
-    input!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    const tableEditor = embeddedTableView();
+    expect(document.activeElement).toBe(tableEditor.contentDOM);
+    tableEditor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     press("j");
     press("j");
     expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(11);
     press("k");
     press("k");
     await Promise.resolve();
-    expect(view.dom.querySelector(".md-table-cell-input")).not.toBeNull();
+    expect(view.dom.querySelector(".md-table-cell-editor")).not.toBeNull();
   });
 
   it("keeps Vim normal and insert modes inside the embedded code editor", async () => {
@@ -381,6 +390,66 @@ describe("livePreview", () => {
     expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(7);
   });
 
+  it("enters, traverses, and exits table rows naturally with j and k", async () => {
+    const tableSource = "Before\n\n| Key | Value |\n| --- | --- |\n| one | 1 |\n| two | 2 |\n\nAfter";
+    const state = EditorState.create({
+      doc: tableSource,
+      selection: EditorSelection.cursor(0),
+      extensions: [vim(), markdown({ extensions: [Table] }), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+
+    press("j");
+    press("j");
+    await Promise.resolve();
+    let embedded = embeddedTableView();
+    expect(embedded.state.doc.toString()).toBe(" Key ");
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+    embedded = embeddedTableView();
+    expect(embedded.state.doc.toString()).toBe(" one ");
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+    embedded = embeddedTableView();
+    expect(embedded.state.doc.toString()).toBe(" two ");
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+    expect(view.dom.querySelector(".md-table-cell-editor")).toBeNull();
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(7);
+
+    press("j");
+    press("k");
+    press("k");
+    await Promise.resolve();
+    embedded = embeddedTableView();
+    expect(embedded.state.doc.toString()).toBe(" two ");
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "k", bubbles: true, cancelable: true }));
+    embedded = embeddedTableView();
+    expect(embedded.state.doc.toString()).toBe(" one ");
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "k", bubbles: true, cancelable: true }));
+    embedded = embeddedTableView();
+    expect(embedded.state.doc.toString()).toBe(" Key ");
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "k", bubbles: true, cancelable: true }));
+    expect(view.dom.querySelector(".md-table-cell-editor")).toBeNull();
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(2);
+  });
+
+  it("preserves the preferred table column across ragged rows", () => {
+    const tableSource = "| A | B | C |\n| --- | --- | --- |\n| short |\n| one | two | target |\n";
+    const state = EditorState.create({
+      doc: tableSource,
+      selection: EditorSelection.cursor(tableSource.length),
+      extensions: [vim(), markdown({ extensions: [Table] }), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+    view.dom.querySelector<HTMLTableCellElement>('th[data-md-column="2"]')?.click();
+    let embedded = embeddedTableView();
+    expect(embedded.state.doc.toString()).toBe(" C ");
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+    embedded = embeddedTableView();
+    expect(embedded.state.doc.toString()).toBe(" short ");
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+    embedded = embeddedTableView();
+    expect(embedded.state.doc.toString()).toBe(" target ");
+  });
+
   it("maps the Vim resume position through in-place code edits", async () => {
     const codeSource = "Before\n\n```text\none\n```\n\nAfter";
     const state = EditorState.create({
@@ -412,14 +481,14 @@ describe("livePreview", () => {
     press("y");
     press("j");
     await Promise.resolve();
-    expect(view.dom.querySelector(".md-table-cell-input")).toBeNull();
+    expect(view.dom.querySelector(".md-table-cell-editor")).toBeNull();
 
     view.destroy();
     view = new EditorView({ state, parent: document.body });
     press("v");
     press("j");
     await Promise.resolve();
-    expect(view.dom.querySelector(".md-table-cell-input")).toBeNull();
+    expect(view.dom.querySelector(".md-table-cell-editor")).toBeNull();
   });
 
   it("does not reopen a code editor when j cannot move past a document-end block", async () => {
