@@ -50,4 +50,24 @@ describe("task Vim mapping", () => {
 
     expect(view.state.doc.toString()).toBe("- [ ] task");
   });
+
+  it("does not toggle while a Vim operator is pending", () => {
+    view = taskEditor();
+
+    press("d");
+    press(",");
+    press("x");
+
+    expect(view.state.doc.toString()).not.toContain("[x]");
+  });
+
+  it("does not toggle in Visual mode", () => {
+    view = taskEditor();
+
+    press("v");
+    press(",");
+    press("x");
+
+    expect(view.state.doc.toString()).not.toContain("[x]");
+  });
 });

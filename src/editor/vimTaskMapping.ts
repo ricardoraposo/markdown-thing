@@ -6,6 +6,7 @@ import { toggleTask } from "./taskToggle";
 interface VimModeState {
   insertMode?: boolean;
   visualMode?: boolean;
+  inputState?: { operator?: unknown };
 }
 
 export function taskLeaderBinding(leader: string): Extension {
@@ -20,7 +21,7 @@ export function taskLeaderBinding(leader: string): Extension {
     keydown(event, view) {
       const cm = getCM(view) as unknown as { state?: { vim?: VimModeState } } | null;
       const vimState = cm?.state?.vim;
-      if (!vimState || vimState.insertMode || vimState.visualMode || event.ctrlKey || event.altKey || event.metaKey) {
+      if (!vimState || vimState.insertMode || vimState.visualMode || vimState.inputState?.operator || event.ctrlKey || event.altKey || event.metaKey) {
         reset();
         return false;
       }
