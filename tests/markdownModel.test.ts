@@ -43,6 +43,15 @@ describe("markdownConstructs", () => {
     expect(parse("> - [ ] quoted\n").map(({ kind }) => kind)).toEqual(["task"]);
   });
 
+  it("extracts tables, inline code, and ordinary fenced code", () => {
+    const source = "| Name | Value |\n| :--- | ---: |\n| `one` | 1 |\n\nUse `inline`.\n\n```ts\nconst x = 1;\n```\n";
+    const constructs = parse(source);
+    expect(constructs.map(({ kind }) => kind)).toEqual(["table", "inlineCode", "codeBlock"]);
+    expect(constructs[0]?.table).toMatchObject({ alignments: ["left", "right"] });
+    expect(constructs[0]?.table?.rows[0]?.[0]?.parts).toEqual([{ kind: "code", text: "one" }]);
+    expect(constructs[2]).toMatchObject({ language: "ts", text: "const x = 1;" });
+  });
+
   it("does not hide incomplete syntax", () => {
     expect(parse("A **half finished")).toEqual([]);
   });

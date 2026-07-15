@@ -4,7 +4,7 @@ import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import { markdownConstructs, rangeIsActive, type TextRange } from "./markdownModel";
 import { ImageWidget } from "./widgets/ImageWidget";
 import { MermaidWidget } from "./widgets/MermaidWidget";
-import { BulletWidget, DividerWidget, TaskWidget } from "./widgets/MarkdownWidgets";
+import { BulletWidget, CodeBlockWidget, DividerWidget, TableWidget, TaskWidget } from "./widgets/MarkdownWidgets";
 
 export interface PreviewContext {
   documentPath: string | null;
@@ -38,6 +38,8 @@ export function buildDecorations(state: EditorState): DecorationSet {
       ranges.push(Decoration.mark({ class: construct.kind === "emphasis" ? "md-emphasis" : "md-strong" }).range(construct.from, construct.to));
     } else if (construct.kind === "link") {
       ranges.push(Decoration.mark({ class: "md-link", attributes: construct.target ? { title: construct.target } : undefined }).range(construct.from, construct.to));
+    } else if (construct.kind === "inlineCode") {
+      ranges.push(Decoration.mark({ class: "md-inline-code" }).range(construct.from, construct.to));
     }
 
     if (active) continue;
@@ -53,6 +55,10 @@ export function buildDecorations(state: EditorState): DecorationSet {
     } else if (construct.kind === "task" && construct.togglePos !== undefined) {
       const marker = construct.markers[0];
       if (marker) ranges.push(Decoration.replace({ widget: new TaskWidget(construct.checked ?? false, construct.togglePos) }).range(marker.from, marker.to));
+    } else if (construct.kind === "table" && construct.table) {
+      ranges.push(Decoration.replace({ block: true, widget: new TableWidget(construct.text ?? "", construct.table) }).range(construct.from, construct.to));
+    } else if (construct.kind === "codeBlock" && construct.editPos !== undefined) {
+      ranges.push(Decoration.replace({ block: true, widget: new CodeBlockWidget(construct.text ?? "", construct.language ?? "", construct.editPos) }).range(construct.from, construct.to));
     } else {
       for (const marker of construct.markers) {
         if (marker.from < marker.to) ranges.push(Decoration.replace({}).range(marker.from, marker.to));

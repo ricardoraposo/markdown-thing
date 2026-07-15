@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { markdown } from "@codemirror/lang-markdown";
-import { TaskList } from "@lezer/markdown";
+import { Table, TaskList } from "@lezer/markdown";
 import { EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it } from "vitest";
@@ -59,6 +59,37 @@ describe("livePreview", () => {
     expect(checkbox?.getAttribute("aria-checked")).toBe("false");
     checkbox?.click();
     expect(view.state.doc.toString()).toBe("- item\n\n- [x] task\n\n---\n\nTail");
+  });
+
+  it("renders a GFM table and reveals its source when a cell is clicked", () => {
+    const tableSource = "| Name | Value |\n| :--- | ---: |\n| `one` | 1 |\n\nTail";
+    const state = EditorState.create({
+      doc: tableSource,
+      selection: EditorSelection.cursor(tableSource.length),
+      extensions: [markdown({ extensions: [Table] }), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+
+    expect(view.dom.querySelectorAll(".md-table-wrap th")).toHaveLength(2);
+    expect(view.dom.querySelector(".md-table-wrap code")?.textContent).toBe("one");
+    view.dom.querySelector<HTMLElement>(".md-table-wrap td")?.click();
+    expect(view.contentDOM.textContent).toContain("| Name | Value |");
+    expect(view.state.doc.toString()).toBe(tableSource);
+  });
+
+  it("renders inline and fenced code while retaining exact source", () => {
+    const codeSource = "Use `inline`.\n\n```ts\nconst x = 1;\n```\n\nTail";
+    const state = EditorState.create({
+      doc: codeSource,
+      selection: EditorSelection.cursor(codeSource.length),
+      extensions: [markdown(), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+
+    expect(view.dom.querySelector(".md-inline-code")?.textContent).toBe("inline");
+    expect(view.dom.querySelector(".md-code-language")?.textContent).toBe("ts");
+    expect(view.dom.querySelector(".md-code-block code")?.textContent).toBe("const x = 1;");
+    expect(view.state.doc.toString()).toBe(codeSource);
   });
 
   it("survives edits next to hidden marker ranges", () => {

@@ -8,8 +8,10 @@ describe("Mermaid detection", () => {
   it("recognizes a case-insensitive mermaid info string", () => {
     expect(constructs("```Mermaid\ngraph LR\nA-->B\n```\n")[0]).toMatchObject({ kind: "mermaid", text: "graph LR\nA-->B" });
   });
-  it("does not replace ordinary code fences", () => {
-    expect(constructs("```ts\nconst value = 1\n```\n")).toEqual([]);
+  it("keeps ordinary code fences out of the Mermaid path", () => {
+    expect(constructs("```ts\nconst value = 1\n```\n")).toEqual([
+      expect.objectContaining({ kind: "codeBlock", language: "ts", text: "const value = 1" }),
+    ]);
   });
   it("does not replace an unfinished fence", () => {
     expect(constructs("```mermaid\ngraph LR\n")).toEqual([]);

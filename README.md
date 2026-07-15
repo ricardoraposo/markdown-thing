@@ -7,6 +7,7 @@ A small Linux-first desktop Markdown editor where the rendered document **is** t
 - Vim-first editing through CodeMirror 6 (`Normal`, `Insert`, visual selections, search, undo/redo, and standard Vim motions/operators)
 - Inline headings, emphasis, strong emphasis, links, circular bullets, and full-width dividers
 - Interactive `- [ ]` task lists with mouse and Vim toggles
+- Rendered GFM tables, inline code, and fenced code blocks
 - Inline local, HTTPS, and `data:image/*` images
 - Lazy-rendered Mermaid fenced blocks
 - Command-line-only file opening with no picker or toolbar chrome
@@ -59,7 +60,7 @@ The editor starts in Vim Normal mode.
 | Search | `/` in Normal mode |
 | Undo / redo | `u` / `Ctrl+R` in Normal mode |
 
-Supported live constructs are ATX headings, emphasis, strong emphasis, inline links, circular bullet lists, horizontal rules, interactive task lists, Markdown images, and fenced blocks whose info string is `mermaid`. The Vim leader key can be changed from the `Ctrl+,` settings modal. Code blocks other than Mermaid remain source text with syntax highlighting.
+Supported live constructs are ATX headings, emphasis, strong emphasis, inline links, circular bullet lists, horizontal rules, interactive task lists, GFM tables, inline and fenced code, Markdown images, and Mermaid fences. The Vim leader key can be changed from the `Ctrl+,` settings modal. Code blocks other than Mermaid remain source text with syntax highlighting.
 
 Relative images are resolved from the Markdown file's directory and must remain within that directory. The native backend only saves or resolves images for document paths authorized by command-line launches. Local PNG, JPEG, GIF, and WebP images are content-validated and limited to 10 MiB. Remote images must use HTTPS.
 

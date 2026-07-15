@@ -1,6 +1,6 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
-import { TaskList } from "@lezer/markdown";
+import { Table, TaskList } from "@lezer/markdown";
 import { bracketMatching, defaultHighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { Compartment, EditorState, Prec, StateEffect } from "@codemirror/state";
 import { drawSelection, dropCursor, highlightSpecialChars, keymap, EditorView } from "@codemirror/view";
@@ -70,7 +70,7 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       bracketMatching(),
       keymap.of([...defaultKeymap, ...historyKeymap]),
-      markdown({ extensions: [TaskList] }),
+      markdown({ extensions: [TaskList, Table] }),
       EditorView.lineWrapping,
       shortcuts,
       livePreview,
