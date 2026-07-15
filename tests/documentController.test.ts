@@ -31,11 +31,38 @@ const adapter = (overrides: Partial<FileAdapter> = {}): FileAdapter => ({
 });
 
 describe("DocumentController", () => {
-  it("loads the command-line file and establishes a clean saved baseline", async () => {
+  it("loads the command-line file and replaces the clean placeholder tab", async () => {
     const subject = setup(adapter({ initial: async () => ({ path: "/notes/TODO.md", content: "# Todo" }) }));
     await subject.controller.openInitial();
     expect(subject.text()).toBe("# Todo");
-    expect(subject.controller.state).toEqual({ path: "/notes/TODO.md", name: "TODO.md", dirty: false });
+    expect(subject.controller.state).toMatchObject({ path: "/notes/TODO.md", name: "TODO.md", dirty: false });
+    expect(subject.controller.state.tabs).toHaveLength(1);
+  });
+
+  it("opens later command-line files in tabs and preserves each buffer", async () => {
+    const subject = setup(adapter({ initial: async () => ({ path: "/notes/one.md", content: "one" }) }));
+    await subject.controller.openInitial();
+    subject.setText("one edited");
+    subject.controller.openDocument({ path: "/notes/two.md", content: "two" });
+
+    expect(subject.text()).toBe("two");
+    expect(subject.controller.state.tabs).toHaveLength(2);
+    const first = subject.controller.state.tabs[0]!;
+    expect(first.dirty).toBe(true);
+
+    subject.controller.switchTo(first.id);
+    expect(subject.text()).toBe("one edited");
+    expect(subject.controller.state.path).toBe("/notes/one.md");
+  });
+
+  it("focuses an existing tab without overwriting unsaved text", async () => {
+    const subject = setup(adapter({ initial: async () => ({ path: "/notes/one.md", content: "one" }) }));
+    await subject.controller.openInitial();
+    subject.setText("unsaved");
+    subject.controller.openDocument({ path: "/notes/two.md", content: "two" });
+    subject.controller.openDocument({ path: "/notes/one.md", content: "disk changed" });
+    expect(subject.text()).toBe("unsaved");
+    expect(subject.controller.state.tabs).toHaveLength(2);
   });
 
   it("tracks changes and clears dirty only after a successful save", async () => {
@@ -55,7 +82,7 @@ describe("DocumentController", () => {
     expect(subject.controller.state.dirty).toBe(true);
   });
 
-  it("keeps edits made while a save is pending dirty", async () => {
+  it("keeps newer edits dirty when a save finishes", async () => {
     let finishSave: ((value: { path: string }) => void) | undefined;
     const pending = new Promise<{ path: string }>((resolve) => { finishSave = resolve; });
     const subject = setup(adapter({

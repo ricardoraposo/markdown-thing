@@ -1,6 +1,7 @@
+import { listen } from "@tauri-apps/api/event";
 import { createEditor, type MarkdownEditor } from "./editor/createEditor";
 import { DocumentController, type DocumentState } from "./file/documentController";
-import { tauriFiles } from "./file/tauriFiles";
+import { tauriFiles, type OpenedDocument } from "./file/tauriFiles";
 import { ThemeController, type ThemePreference } from "./theme/themeController";
 
 const WELCOME = `# Welcome to Markdown Thing
@@ -29,11 +30,13 @@ export function mountApp(root: HTMLElement): void {
           <select id="theme" aria-label="Color theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
         </label>
       </header>
+      <nav id="tabs" class="tabbar" aria-label="Open files" hidden></nav>
       <section id="editor" aria-label="Markdown editor"></section>
       <footer class="statusbar"><span id="message">Ready</span><span id="position">Ln 1, Col 1</span></footer>
     </main>`;
 
   const editorHost = root.querySelector<HTMLElement>("#editor")!;
+  const tabbar = root.querySelector<HTMLElement>("#tabs")!;
   const filename = root.querySelector<HTMLElement>("#filename")!;
   const dirty = root.querySelector<HTMLElement>("#dirty")!;
   const message = root.querySelector<HTMLElement>("#message")!;
@@ -44,7 +47,7 @@ export function mountApp(root: HTMLElement): void {
 
   let editor: MarkdownEditor;
   let controller: DocumentController;
-  let documentState: DocumentState = { path: null, name: "Untitled.md", dirty: false };
+  let documentState: DocumentState = { path: null, name: "Untitled.md", dirty: false, tabs: [] };
   let messageTimer: number | undefined;
   const showMessage = (text: string, error = false): void => {
     message.textContent = text;
@@ -57,6 +60,16 @@ export function mountApp(root: HTMLElement): void {
     filename.textContent = state.name;
     dirty.textContent = state.dirty ? "●" : "";
     document.title = `${state.dirty ? "• " : ""}${state.name} — Markdown Thing`;
+    tabbar.hidden = state.tabs.length < 2;
+    tabbar.replaceChildren(...state.tabs.map((tab) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.tabId = String(tab.id);
+      button.className = `tab${tab.active ? " active" : ""}`;
+      button.textContent = `${tab.dirty ? "• " : ""}${tab.name}`;
+      button.title = tab.path ?? tab.name;
+      return button;
+    }));
     editor?.setContext(state.path, themes.resolved);
   };
 
@@ -80,8 +93,14 @@ export function mountApp(root: HTMLElement): void {
   });
 
   root.querySelector("#save")!.addEventListener("click", () => void controller.save());
+  tabbar.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-tab-id]");
+    if (button) controller.switchTo(Number(button.dataset.tabId));
+  });
   themeSelect.addEventListener("change", () => themes.set(themeSelect.value as ThemePreference));
   themes.subscribe((theme) => editor.setContext(documentState.path, theme));
+  void listen<OpenedDocument>("open-document", (event) => controller.openDocument(event.payload));
+  void listen<string>("open-document-error", (event) => showMessage(event.payload, true));
   void controller.openInitial();
   editor.focus();
 }

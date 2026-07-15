@@ -72,7 +72,7 @@ fn resolve_startup_argument(
     Ok(Some(path))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenedDocument {
     path: String,
@@ -101,6 +101,25 @@ async fn write_utf8(path: &Path, content: &str) -> Result<(), String> {
     tokio::fs::write(path, content)
         .await
         .map_err(|error| format!("Could not save file: {error}"))
+}
+
+pub fn launched_document(
+    authorization: &FileAuthorization,
+    arguments: &[String],
+    working_directory: &Path,
+) -> Result<Option<OpenedDocument>, String> {
+    let argument = arguments.get(1).map(PathBuf::from);
+    let Some(path) = resolve_startup_argument(argument, working_directory)? else {
+        return Ok(None);
+    };
+    let bytes = std::fs::read(&path).map_err(|error| format!("Could not read file: {error}"))?;
+    let content =
+        String::from_utf8(bytes).map_err(|_| "The selected file is not valid UTF-8".to_owned())?;
+    authorization.authorize(path.clone())?;
+    Ok(Some(OpenedDocument {
+        path: display_path(&path)?,
+        content,
+    }))
 }
 
 async fn open_document(
@@ -250,6 +269,23 @@ mod tests {
         let resolved = resolve_startup_argument(Some(PathBuf::from("TODO.md")), &dir).unwrap();
 
         assert_eq!(resolved, Some(file.canonicalize().unwrap()));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn resolves_and_authorizes_a_later_launch_file() {
+        let dir = fixture_dir();
+        let file = dir.join("second.md");
+        fs::write(&file, "# Second").unwrap();
+        let authorization = FileAuthorization::default();
+        let arguments = vec!["markdown-thing".to_owned(), "second.md".to_owned()];
+
+        let opened = launched_document(&authorization, &arguments, &dir)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(opened.content, "# Second");
+        assert!(authorization.require(&file).is_ok());
         let _ = fs::remove_dir_all(dir);
     }
 
