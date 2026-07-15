@@ -1,5 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { createEditor, type MarkdownEditor } from "./editor/createEditor";
+import { describeLeader, loadLeader, normalizeLeader, saveLeader } from "./editor/leaderPreference";
 import { DocumentController, type DocumentState } from "./file/documentController";
 import { tauriFiles } from "./file/tauriFiles";
 import { ThemeController, type ThemePreference } from "./theme/themeController";
@@ -43,6 +44,10 @@ export function mountApp(root: HTMLElement): void {
               <option value="dark">Dark</option>
             </select>
           </label>
+          <label class="setting-row" for="leader-key">
+            <span><strong>Vim leader</strong><small>Press this key, then x, to toggle a task.</small></span>
+            <button id="leader-key" class="key-capture" type="button" title="Click, then press a key"></button>
+          </label>
         </section>
         <p class="settings-hint"><kbd>Esc</kbd> to close</p>
       </form>
@@ -55,8 +60,11 @@ export function mountApp(root: HTMLElement): void {
   const position = root.querySelector<HTMLElement>("#position")!;
   const settings = root.querySelector<HTMLDialogElement>("#settings")!;
   const themeSelect = root.querySelector<HTMLSelectElement>("#theme")!;
+  const leaderButton = root.querySelector<HTMLButtonElement>("#leader-key")!;
   const themes = new ThemeController();
+  let leader = loadLeader();
   themeSelect.value = themes.value;
+  leaderButton.textContent = describeLeader(leader);
 
   let editor: MarkdownEditor;
   let controller: DocumentController;
@@ -99,6 +107,7 @@ export function mountApp(root: HTMLElement): void {
     parent: editorHost,
     initialDocument: WELCOME,
     theme: themes.resolved,
+    leader,
     actions: {
       save: () => { void controller.save(); },
       settings: openSettings,
@@ -125,6 +134,26 @@ export function mountApp(root: HTMLElement): void {
     }
   });
   themeSelect.addEventListener("change", () => themes.set(themeSelect.value as ThemePreference));
+  let capturingLeader = false;
+  leaderButton.addEventListener("click", () => {
+    capturingLeader = true;
+    leaderButton.textContent = "Press a key…";
+  });
+  leaderButton.addEventListener("keydown", (event) => {
+    if (!capturingLeader || event.ctrlKey || event.altKey || event.metaKey) return;
+    const nextLeader = normalizeLeader(event.key);
+    if (!nextLeader) return;
+    event.preventDefault();
+    leader = nextLeader;
+    saveLeader(leader);
+    editor.setLeader(leader);
+    leaderButton.textContent = describeLeader(leader);
+    capturingLeader = false;
+  });
+  leaderButton.addEventListener("blur", () => {
+    capturingLeader = false;
+    leaderButton.textContent = describeLeader(leader);
+  });
   settings.addEventListener("close", () => editor.focus());
   document.addEventListener("keydown", (event) => {
     if (event.ctrlKey && !event.shiftKey && !event.altKey && event.key === ",") {

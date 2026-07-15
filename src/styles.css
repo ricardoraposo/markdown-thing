@@ -57,7 +57,11 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 .settings-section h3 { margin: 0 0 4px; font-size: 14px; }
 .settings-section p { margin: 0; color: var(--muted); font-size: 12px; }
 .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; font-size: 13px; }
+.setting-row strong { display: block; font-size: 13px; }
+.setting-row small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 400; }
 .setting-row select { min-width: 112px; padding: 7px 28px 7px 10px; background: var(--widget); }
+.key-capture { min-width: 112px; padding: 7px 10px; background: var(--widget); font: 11px var(--font-mono); }
+.key-capture:hover { background: var(--line); }
 .settings-hint { margin: 0; padding: 12px 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 kbd { padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--widget); font: 10px var(--font-mono); }
 

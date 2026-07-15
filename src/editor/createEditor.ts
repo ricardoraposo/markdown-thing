@@ -9,7 +9,7 @@ import { livePreview, setPreviewContext } from "./livePreview";
 import { darkEditorTheme, lightEditorTheme } from "../theme/editorThemes";
 import type { ResolvedTheme } from "../theme/themeController";
 import { prepareDocument, serializeDocument } from "./lineEndings";
-import { installTaskVimMapping } from "./vimTaskMapping";
+import { taskLeaderBinding } from "./vimTaskMapping";
 
 export interface EditorActions {
   save(): void;
@@ -23,6 +23,7 @@ export interface EditorOptions {
   parent: HTMLElement;
   initialDocument: string;
   theme: ResolvedTheme;
+  leader: string;
   actions: EditorActions;
   onChange(text: string): void;
   onCursor(line: number, column: number): void;
@@ -33,14 +34,15 @@ export interface MarkdownEditor {
   text(): string;
   replace(text: string): void;
   setContext(path: string | null, theme: ResolvedTheme): void;
+  setLeader(leader: string): void;
   focus(): void;
   destroy(): void;
 }
 
 export function createEditor(options: EditorOptions): MarkdownEditor {
-  installTaskVimMapping();
   const themeCompartment = new Compartment();
   const lineSeparatorCompartment = new Compartment();
+  const leaderCompartment = new Compartment();
   const initialDocument = prepareDocument(options.initialDocument);
   const shortcuts = Prec.highest(keymap.of([
     { key: "Ctrl-s", preventDefault: true, run: () => { options.actions.save(); return true; } },
@@ -58,6 +60,7 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
     extensions: [
       lineSeparatorCompartment.of(EditorState.lineSeparator.of(initialDocument.lineSeparator)),
       vim(),
+      leaderCompartment.of(taskLeaderBinding(options.leader)),
       highlightSpecialChars(),
       history(),
       drawSelection(),
@@ -101,6 +104,9 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
       if (theme !== currentTheme) effects.push(themeCompartment.reconfigure(theme === "dark" ? darkEditorTheme : lightEditorTheme));
       currentTheme = theme;
       view.dispatch({ effects });
+    },
+    setLeader(leader) {
+      view.dispatch({ effects: leaderCompartment.reconfigure(taskLeaderBinding(leader)) });
     },
     focus: () => view.focus(),
     destroy: () => view.destroy(),
