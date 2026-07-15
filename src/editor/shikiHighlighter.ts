@@ -1,5 +1,5 @@
 import { createBundledHighlighter, createSingletonShorthands } from "@shikijs/core";
-import { createOnigurumaEngine } from "@shikijs/engine-oniguruma";
+import { createJavaScriptRegexEngine } from "@shikijs/engine-javascript";
 
 const languages = {
   ruby: () => import("@shikijs/langs/ruby"),
@@ -63,7 +63,7 @@ const aliases: Record<string, keyof typeof languages> = {
 const createHighlighter = createBundledHighlighter({
   langs: languages,
   themes,
-  engine: () => createOnigurumaEngine(import("@shikijs/engine-oniguruma/wasm-inlined")),
+  engine: () => createJavaScriptRegexEngine(),
 });
 const { codeToTokens } = createSingletonShorthands(createHighlighter);
 
