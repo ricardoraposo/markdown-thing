@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashSet, VecDeque},
     env,
     path::{Path, PathBuf},
     sync::Mutex,
@@ -9,6 +9,8 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 
 const MAX_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
+const READY_ARGUMENT_PREFIX: &str = "--markdown-thing-ready=";
+const READY_ENV: &str = "MARKDOWN_THING_READY_FILE";
 
 #[derive(Default)]
 pub struct FileAuthorization {
@@ -43,12 +45,64 @@ pub struct StartupFile {
     path: Result<Option<PathBuf>, String>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(tag = "type", content = "payload", rename_all = "camelCase")]
+pub enum LaunchItem {
+    Document(OpenedDocument),
+    Error(String),
+}
+
+#[derive(Default)]
+pub struct LaunchQueue {
+    items: Mutex<VecDeque<LaunchItem>>,
+}
+
+impl LaunchQueue {
+    pub fn push(&self, item: LaunchItem) -> Result<(), String> {
+        self.items
+            .lock()
+            .map_err(|_| "Launch queue is unavailable".to_owned())?
+            .push_back(item);
+        Ok(())
+    }
+
+    fn drain(&self) -> Result<Vec<LaunchItem>, String> {
+        let mut items = self
+            .items
+            .lock()
+            .map_err(|_| "Launch queue is unavailable".to_owned())?;
+        Ok(items.drain(..).collect())
+    }
+}
+
 pub fn startup_file_from_env() -> StartupFile {
-    let argument = env::args_os().nth(1).map(PathBuf::from);
+    let argument = env::args_os()
+        .skip(1)
+        .find(|argument| {
+            !argument
+                .to_string_lossy()
+                .starts_with(READY_ARGUMENT_PREFIX)
+        })
+        .map(PathBuf::from);
     let path = env::current_dir()
         .map_err(|error| format!("Could not determine the working directory: {error}"))
         .and_then(|cwd| resolve_startup_argument(argument, &cwd));
     StartupFile { path }
+}
+
+pub fn signal_ready_from_env() {
+    if let Some(path) = env::var_os(READY_ENV) {
+        let _ = std::fs::write(path, []);
+    }
+}
+
+pub fn signal_ready_from_arguments(arguments: &[String]) {
+    if let Some(path) = arguments
+        .iter()
+        .find_map(|argument| argument.strip_prefix(READY_ARGUMENT_PREFIX))
+    {
+        let _ = std::fs::write(path, []);
+    }
 }
 
 fn resolve_startup_argument(
@@ -108,7 +162,11 @@ pub fn launched_document(
     arguments: &[String],
     working_directory: &Path,
 ) -> Result<Option<OpenedDocument>, String> {
-    let argument = arguments.get(1).map(PathBuf::from);
+    let argument = arguments
+        .iter()
+        .skip(1)
+        .find(|argument| !argument.starts_with(READY_ARGUMENT_PREFIX))
+        .map(PathBuf::from);
     let Some(path) = resolve_startup_argument(argument, working_directory)? else {
         return Ok(None);
     };
@@ -135,6 +193,13 @@ async fn open_document(
         path: display_path(&path)?,
         content,
     })
+}
+
+#[tauri::command]
+pub fn drain_launch_queue(
+    launch_queue: tauri::State<'_, LaunchQueue>,
+) -> Result<Vec<LaunchItem>, String> {
+    launch_queue.drain()
 }
 
 #[tauri::command]
@@ -287,6 +352,32 @@ mod tests {
         assert_eq!(opened.content, "# Second");
         assert!(authorization.require(&file).is_ok());
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn launch_queue_retains_items_until_the_frontend_drains_it() {
+        let queue = LaunchQueue::default();
+        queue.push(LaunchItem::Error("first".to_owned())).unwrap();
+        queue.push(LaunchItem::Error("second".to_owned())).unwrap();
+
+        let drained = queue.drain().unwrap();
+
+        assert_eq!(drained.len(), 2);
+        assert!(queue.drain().unwrap().is_empty());
+    }
+
+    #[test]
+    fn readiness_argument_is_not_treated_as_a_document() {
+        let authorization = FileAuthorization::default();
+        let arguments = vec![
+            "markdown-thing".to_owned(),
+            "--markdown-thing-ready=/tmp/ready".to_owned(),
+        ];
+        assert!(
+            launched_document(&authorization, &arguments, Path::new("/"))
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]

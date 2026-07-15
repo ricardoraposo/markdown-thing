@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { createEditor, type MarkdownEditor } from "./editor/createEditor";
 import { DocumentController, type DocumentState } from "./file/documentController";
-import { tauriFiles, type OpenedDocument } from "./file/tauriFiles";
+import { tauriFiles } from "./file/tauriFiles";
 import { ThemeController, type ThemePreference } from "./theme/themeController";
 
 const WELCOME = `# Markdown Thing
@@ -25,7 +25,7 @@ export function mountApp(root: HTMLElement): void {
     <main class="app-shell">
       <nav id="tabs" class="tabbar" aria-label="Open files" hidden></nav>
       <section id="editor" aria-label="Markdown editor"></section>
-      <footer class="statusbar" data-tauri-drag-region><span id="message">Ready</span><span id="position">Ln 1, Col 1</span></footer>
+      <footer class="statusbar" data-tauri-drag-region><span id="message">Ready</span><span class="status-document"><span id="document-label">Untitled.md</span><span id="position">Ln 1, Col 1</span></span></footer>
     </main>
     <dialog id="settings" class="settings-dialog" aria-labelledby="settings-title">
       <form method="dialog">
@@ -50,6 +50,7 @@ export function mountApp(root: HTMLElement): void {
   const editorHost = root.querySelector<HTMLElement>("#editor")!;
   const tabbar = root.querySelector<HTMLElement>("#tabs")!;
   const message = root.querySelector<HTMLElement>("#message")!;
+  const documentLabel = root.querySelector<HTMLElement>("#document-label")!;
   const position = root.querySelector<HTMLElement>("#position")!;
   const settings = root.querySelector<HTMLDialogElement>("#settings")!;
   const themeSelect = root.querySelector<HTMLSelectElement>("#theme")!;
@@ -76,6 +77,8 @@ export function mountApp(root: HTMLElement): void {
   const updateState = (state: DocumentState): void => {
     documentState = state;
     document.title = `${state.dirty ? "• " : ""}${state.name} — Markdown Thing`;
+    documentLabel.textContent = `${state.dirty ? "• " : ""}${state.name}`;
+    documentLabel.setAttribute("aria-label", `${state.name}${state.dirty ? ", unsaved changes" : ""}`);
     tabbar.hidden = state.tabs.length < 2;
     tabbar.replaceChildren(...state.tabs.map((tab) => {
       const button = document.createElement("button");
@@ -84,6 +87,8 @@ export function mountApp(root: HTMLElement): void {
       button.className = `tab${tab.active ? " active" : ""}`;
       button.textContent = `${tab.dirty ? "• " : ""}${tab.name}`;
       button.title = tab.path ?? tab.name;
+      button.setAttribute("aria-label", `${tab.name}${tab.dirty ? ", unsaved changes" : ""}`);
+      if (tab.active) button.setAttribute("aria-current", "page");
       return button;
     }));
     editor?.setContext(state.path, themes.resolved);
@@ -110,7 +115,10 @@ export function mountApp(root: HTMLElement): void {
 
   tabbar.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-tab-id]");
-    if (button) controller.switchTo(Number(button.dataset.tabId));
+    if (button) {
+      controller.switchTo(Number(button.dataset.tabId));
+      editor.focus();
+    }
   });
   themeSelect.addEventListener("change", () => themes.set(themeSelect.value as ThemePreference));
   settings.addEventListener("close", () => editor.focus());
@@ -121,8 +129,22 @@ export function mountApp(root: HTMLElement): void {
     }
   });
   themes.subscribe((theme) => editor.setContext(documentState.path, theme));
-  void listen<OpenedDocument>("open-document", (event) => controller.openDocument(event.payload));
-  void listen<string>("open-document-error", (event) => showMessage(event.payload, true));
-  void controller.openInitial();
+
+  const drainLaunchQueue = async (): Promise<void> => {
+    try {
+      for (const item of await tauriFiles.drainLaunchQueue()) {
+        if (item.type === "document") controller.openDocument(item.payload);
+        else showMessage(item.payload, true);
+      }
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : String(error), true);
+    }
+  };
+  const initializeFiles = async (): Promise<void> => {
+    await controller.openInitial();
+    await listen("launch-queued", () => { void drainLaunchQueue(); });
+    await drainLaunchQueue();
+  };
   editor.focus();
+  void initializeFiles();
 }

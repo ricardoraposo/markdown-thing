@@ -26,6 +26,7 @@ function setup(files: FileAdapter, initial = "initial") {
 
 const adapter = (overrides: Partial<FileAdapter> = {}): FileAdapter => ({
   initial: vi.fn(async () => null),
+  drainLaunchQueue: vi.fn(async () => []),
   save: vi.fn(async (path) => ({ path })),
   ...overrides,
 });
