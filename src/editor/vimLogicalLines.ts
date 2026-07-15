@@ -28,15 +28,18 @@ function moveByLogicalLines(cm: CodeMirrorV, head: Pos, motionArgs: MotionArgs, 
   const selector = `[data-md-edit-pos="${block.editPos}"]`;
   const editSelector = block.kind === "codeBlock" ? "[data-md-code-edit]" : ".md-block-action";
   if (!view.dom.querySelector<HTMLElement>(selector)?.querySelector(editSelector)) return target;
-  const resumePosition = direction > 0 && source[block.to] === "\n" ? block.to + 1 : block.to;
-  const resumeBase = direction > 0
-    ? block.kind === "codeBlock" ? block.editTo! : block.editPos + (block.text?.length ?? block.to - block.from)
-    : block.editPos;
+  const blockStartLine = view.state.doc.lineAt(block.from);
+  const resumePosition = direction > 0
+    ? source[block.to] === "\n" ? block.to + 1 : block.to
+    : blockStartLine.number > 1 ? view.state.doc.line(blockStartLine.number - 1).from : block.from;
+  const endBase = block.kind === "codeBlock" ? block.editTo! : block.editPos + (block.text?.length ?? block.to - block.from);
+  const backwardResumePosition = blockStartLine.number > 1 ? view.state.doc.line(blockStartLine.number - 1).from : block.from;
   queueMicrotask(() => {
     const root = view.dom.querySelector<HTMLElement>(selector);
     if (!root) return;
     root.dataset.mdVimResumeAnchor = direction > 0 ? "end" : "start";
-    root.dataset.mdVimResumeOffset = String((direction > 0 ? resumePosition : block.from) - resumeBase);
+    root.dataset.mdVimResumeStartOffset = String(backwardResumePosition - block.editPos!);
+    root.dataset.mdVimResumeEndOffset = String((direction > 0 ? resumePosition : source[block.to] === "\n" ? block.to + 1 : block.to) - endBase);
     root.querySelector<HTMLButtonElement>(editSelector)?.click();
   });
   return cm.posFromIndex(block.from);

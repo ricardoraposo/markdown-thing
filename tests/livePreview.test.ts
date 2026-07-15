@@ -337,6 +337,50 @@ describe("livePreview", () => {
     expect(view.dom.querySelector(".md-code-editor")).toBeNull();
   });
 
+  it("enters and exits code blocks naturally with j and k", async () => {
+    const codeSource = "Before\n\n```text\none\ntwo\n```\n\nAfter";
+    const state = EditorState.create({
+      doc: codeSource,
+      selection: EditorSelection.cursor(0),
+      extensions: [vim(), markdown(), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+
+    press("j");
+    press("j");
+    await Promise.resolve();
+    let embedded = embeddedCodeView();
+    expect(embedded.state.doc.lineAt(embedded.state.selection.main.head).number).toBe(1);
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+    expect(embedded.state.doc.lineAt(embedded.state.selection.main.head).number).toBe(2);
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+    expect(view.dom.querySelector(".md-code-editor")).toBeNull();
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(7);
+
+    press("k");
+    await Promise.resolve();
+    embedded = embeddedCodeView();
+    expect(embedded.state.doc.lineAt(embedded.state.selection.main.head).number).toBe(2);
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "k", bubbles: true, cancelable: true }));
+    expect(embedded.state.doc.lineAt(embedded.state.selection.main.head).number).toBe(1);
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "k", bubbles: true, cancelable: true }));
+    expect(view.dom.querySelector(".md-code-editor")).toBeNull();
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(2);
+
+    press("j");
+    await Promise.resolve();
+    embedded = embeddedCodeView();
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "k", bubbles: true, cancelable: true }));
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(2);
+
+    view.dispatch({ selection: { anchor: view.state.doc.line(7).from } });
+    press("k");
+    await Promise.resolve();
+    embedded = embeddedCodeView();
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(7);
+  });
+
   it("maps the Vim resume position through in-place code edits", async () => {
     const codeSource = "Before\n\n```text\none\n```\n\nAfter";
     const state = EditorState.create({

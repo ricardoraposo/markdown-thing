@@ -25,13 +25,13 @@ export interface EmbeddedCodeEditorOptions {
   source: string;
   language: string;
   onChange(source: string, userEvent: string): void;
-  onExit(): void;
+  onExit(direction?: "forward" | "backward"): void;
 }
 
 export interface EmbeddedCodeEditorHandle {
   readonly view: EditorView;
   sync(source: string, language: string): void;
-  focus(): void;
+  focus(position?: "start" | "end"): void;
   destroy(): void;
 }
 
@@ -48,6 +48,14 @@ export function createEmbeddedCodeEditor(options: EmbeddedCodeEditorOptions): Em
       }
       const vimState = getCM(view)?.state.vim as vimState | null | undefined;
       const normal = Boolean(vimState && !vimState.insertMode && !vimState.visualMode && !vimState.inputState.operator && !vimState.inputState.keyBuffer.length);
+      if (normal && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const line = view.state.doc.lineAt(view.state.selection.main.head).number;
+        if ((event.key === "j" && line === view.state.doc.lines) || (event.key === "k" && line === 1)) {
+          event.preventDefault();
+          options.onExit(event.key === "j" ? "forward" : "backward");
+          return true;
+        }
+      }
       if (normal && !event.ctrlKey && !event.metaKey && !event.altKey && event.key === "u") {
         event.preventDefault();
         undo(options.parentView);
@@ -106,10 +114,11 @@ export function createEmbeddedCodeEditor(options: EmbeddedCodeEditorOptions): Em
       const change = minimalChange(view.state.doc.toString(), source);
       if (change) view.dispatch({ changes: change, annotations: [parentSync.of(true), Transaction.addToHistory.of(false)] });
     },
-    focus() {
+    focus(position = "start") {
       if (destroyed) return;
       view.focus();
-      view.dispatch({ selection: { anchor: 0 } });
+      const anchor = position === "end" ? view.state.doc.line(view.state.doc.lines).from : 0;
+      view.dispatch({ selection: { anchor } });
     },
     destroy() {
       if (destroyed) return;

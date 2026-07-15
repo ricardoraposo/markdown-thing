@@ -53,12 +53,13 @@ function inputUserEvent(event: Event): string {
   return event instanceof InputEvent && event.inputType === "insertFromPaste" ? "input.paste" : "input.type";
 }
 
-function restoreVimResumePosition(element: HTMLElement, view: EditorView, startBase: number, endBase: number): void {
-  const value = element.dataset.mdVimResumeOffset;
+function restoreVimResumePosition(element: HTMLElement, view: EditorView, startBase: number, endBase: number, direction?: "forward" | "backward"): void {
+  const anchor = direction === "forward" ? "end" : direction === "backward" ? "start" : element.dataset.mdVimResumeAnchor;
+  const value = anchor === "end" ? element.dataset.mdVimResumeEndOffset : element.dataset.mdVimResumeStartOffset;
   if (value === undefined) return;
-  const anchor = element.dataset.mdVimResumeAnchor;
-  delete element.dataset.mdVimResumeOffset;
   delete element.dataset.mdVimResumeAnchor;
+  delete element.dataset.mdVimResumeStartOffset;
+  delete element.dataset.mdVimResumeEndOffset;
   const offset = Number(value);
   const position = (anchor === "end" ? endBase : startBase) + offset;
   if (Number.isInteger(position)) view.dispatch({ selection: { anchor: Math.max(0, Math.min(position, view.state.doc.length)) } });
@@ -305,10 +306,10 @@ function renderHighlightedCode(container: HTMLElement): void {
   });
 }
 
-function finishCodeEditing(container: HTMLElement, focusEditor = false): void {
+function finishCodeEditing(container: HTMLElement, focusEditor = false, direction?: "forward" | "backward"): void {
   const controller = codeControllers.get(container);
   if (!controller?.editing) return;
-  restoreVimResumePosition(container, controller.view, controller.widget.editPos, controller.widget.editTo);
+  restoreVimResumePosition(container, controller.view, controller.widget.editPos, controller.widget.editTo, direction);
   controller.editing = false;
   controller.embedded?.destroy();
   controller.embedded = undefined;
@@ -348,7 +349,7 @@ function startCodeEditing(container: HTMLElement): void {
       const widget = current.widget;
       replaceWithMinimalChange(current.view, widget.editPos, widget.source, source, widget.editSuffix, userEvent);
     },
-    onExit: () => finishCodeEditing(container, true),
+    onExit: (direction) => finishCodeEditing(container, true, direction),
   });
   mount.addEventListener("focusout", () => {
     queueMicrotask(() => {
@@ -357,7 +358,7 @@ function startCodeEditing(container: HTMLElement): void {
   });
   controller.embedded.view.scrollDOM.scrollTop = previewScrollTop;
   controller.embedded.view.scrollDOM.scrollLeft = previewScrollLeft;
-  controller.embedded.focus();
+  controller.embedded.focus(container.dataset.mdVimResumeAnchor === "start" ? "end" : "start");
 }
 
 export class CodeBlockWidget extends WidgetType {
