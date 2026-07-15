@@ -231,8 +231,8 @@ describe("livePreview", () => {
     expect(view.dom.querySelector(".md-code-block code")?.textContent).toBe("plain text");
   });
 
-  it("moves Vim j and k by exactly one document line through rendered blocks", () => {
-    const navigationSource = "Metadados sugeridos:\n\n```text\nprovider\ntemplate_name\n```\n\n# 16. Entregas\n\n### Escopo\n\n- [ ] primeira\n- [ ] segunda\n- [ ] terceira\n";
+  it("moves Vim j and k by exactly one document line through headings and tasks", () => {
+    const navigationSource = "Metadados sugeridos:\n\n# 16. Entregas\n\n### Escopo\n\n- [ ] primeira\n- [ ] segunda\n- [ ] terceira\n";
     const state = EditorState.create({
       doc: navigationSource,
       selection: EditorSelection.cursor(0),
@@ -240,14 +240,107 @@ describe("livePreview", () => {
     });
     view = new EditorView({ state, parent: document.body });
 
-    for (let expectedLine = 2; expectedLine <= 14; expectedLine++) {
+    for (let expectedLine = 2; expectedLine <= 9; expectedLine++) {
       press("j");
       expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(expectedLine);
     }
-    for (let expectedLine = 13; expectedLine >= 1; expectedLine--) {
+    for (let expectedLine = 8; expectedLine >= 1; expectedLine--) {
       press("k");
       expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(expectedLine);
     }
+  });
+
+  it("opens the in-place editor when Vim j enters code blocks and tables", async () => {
+    const navigationSource = "Before\n\n```text\nprovider\n```\n\n| Key | Value |\n| --- | --- |\n| one | two |\n\nAfter";
+    const state = EditorState.create({
+      doc: navigationSource,
+      selection: EditorSelection.cursor(0),
+      extensions: [vim(), markdown({ extensions: [Table] }), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+
+    press("j");
+    press("j");
+    await Promise.resolve();
+    const textarea = view.dom.querySelector<HTMLTextAreaElement>(".md-code-editor");
+    expect(textarea).not.toBeNull();
+    expect(document.activeElement).toBe(textarea);
+    textarea!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+
+    press("j");
+    press("j");
+    await Promise.resolve();
+    const input = view.dom.querySelector<HTMLInputElement>(".md-table-cell-input");
+    expect(input).not.toBeNull();
+    expect(document.activeElement).toBe(input);
+    input!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    press("j");
+    press("j");
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(11);
+    press("k");
+    press("k");
+    await Promise.resolve();
+    expect(view.dom.querySelector(".md-table-cell-input")).not.toBeNull();
+  });
+
+  it("maps the Vim resume position through in-place code edits", async () => {
+    const codeSource = "Before\n\n```text\none\n```\n\nAfter";
+    const state = EditorState.create({
+      doc: codeSource,
+      selection: EditorSelection.cursor(0),
+      extensions: [vim(), markdown(), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+    press("j");
+    press("j");
+    await Promise.resolve();
+    const textarea = view.dom.querySelector<HTMLTextAreaElement>(".md-code-editor")!;
+    textarea.value = "one\ntwo";
+    textarea.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+    textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(7);
+    press("j");
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(8);
+  });
+
+  it("does not activate rich-block editors for operators or visual selections", async () => {
+    const tableSource = "Before\n\n| A |\n| --- |\n| one |";
+    const blankLine = tableSource.indexOf("\n") + 1;
+    const state = EditorState.create({
+      doc: tableSource,
+      selection: EditorSelection.cursor(blankLine),
+      extensions: [vim(), markdown({ extensions: [Table] }), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+    press("y");
+    press("j");
+    await Promise.resolve();
+    expect(view.dom.querySelector(".md-table-cell-input")).toBeNull();
+
+    view.destroy();
+    view = new EditorView({ state, parent: document.body });
+    press("v");
+    press("j");
+    await Promise.resolve();
+    expect(view.dom.querySelector(".md-table-cell-input")).toBeNull();
+  });
+
+  it("does not reopen a code editor when j cannot move past a document-end block", async () => {
+    const codeSource = "Before\n\n```text\none\n```";
+    const state = EditorState.create({
+      doc: codeSource,
+      selection: EditorSelection.cursor(0),
+      extensions: [vim(), markdown(), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+    press("j");
+    press("j");
+    await Promise.resolve();
+    view.dom.querySelector<HTMLTextAreaElement>(".md-code-editor")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    press("j");
+    await Promise.resolve();
+    expect(view.dom.querySelector(".md-code-editor")).toBeNull();
   });
 
   it("preserves Vim's end-of-line column across logical j and k motions", () => {

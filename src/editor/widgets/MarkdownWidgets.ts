@@ -52,6 +52,17 @@ function inputUserEvent(event: Event): string {
   return event instanceof InputEvent && event.inputType === "insertFromPaste" ? "input.paste" : "input.type";
 }
 
+function restoreVimResumePosition(element: HTMLElement, view: EditorView, startBase: number, endBase: number): void {
+  const value = element.dataset.mdVimResumeOffset;
+  if (value === undefined) return;
+  const anchor = element.dataset.mdVimResumeAnchor;
+  delete element.dataset.mdVimResumeOffset;
+  delete element.dataset.mdVimResumeAnchor;
+  const offset = Number(value);
+  const position = (anchor === "end" ? endBase : startBase) + offset;
+  if (Number.isInteger(position)) view.dispatch({ selection: { anchor: Math.max(0, Math.min(position, view.state.doc.length)) } });
+}
+
 interface TableController {
   widget: TableWidget;
   view: EditorView;
@@ -81,6 +92,7 @@ function finishTableCell(wrapper: HTMLElement, focusEditor = false, restoreCellF
   if (!controller || !editing) return;
   const cell = tableCell(controller.widget, editing.header, editing.row, editing.column);
   const element = editing.input.closest<HTMLTableCellElement>("th, td");
+  restoreVimResumePosition(wrapper, controller.view, controller.widget.editPos, controller.widget.editPos + controller.widget.source.length);
   controller.editing = undefined;
   if (cell && element) {
     renderTableCell(element, cell);
@@ -170,6 +182,7 @@ export class TableWidget extends WidgetType {
   toDOM(view: EditorView): HTMLElement {
     const wrapper = document.createElement("div");
     wrapper.className = "md-table-wrap";
+    wrapper.dataset.mdEditPos = String(this.editPos);
     wrapper.tabIndex = 0;
     wrapper.setAttribute("role", "region");
     wrapper.setAttribute("aria-label", "Markdown table; scroll horizontally when needed");
@@ -219,6 +232,7 @@ export class TableWidget extends WidgetType {
     if (!cell) return false;
     controller.widget = this;
     controller.view = view;
+    dom.dataset.mdEditPos = String(this.editPos);
     if (!editing.composing && editing.input.value !== cell.source) {
       const start = editing.input.selectionStart ?? 0;
       const end = editing.input.selectionEnd ?? start;
@@ -293,6 +307,7 @@ function renderHighlightedCode(container: HTMLElement): void {
 function finishCodeEditing(container: HTMLElement, focusEditor = false): void {
   const controller = codeControllers.get(container);
   if (!controller?.editing) return;
+  restoreVimResumePosition(container, controller.view, controller.widget.editPos, controller.widget.editTo);
   controller.editing = false;
   controller.generation++;
   container.classList.remove("editing", "highlighted");
@@ -372,6 +387,7 @@ export class CodeBlockWidget extends WidgetType {
   toDOM(view: EditorView): HTMLElement {
     const container = document.createElement("div");
     container.className = "md-code-block";
+    container.dataset.mdEditPos = String(this.editPos);
     codeControllers.set(container, { widget: this, view, editing: false, composing: false, generation: 0 });
     const toolbar = document.createElement("div");
     toolbar.className = "md-code-toolbar";
@@ -417,6 +433,7 @@ export class CodeBlockWidget extends WidgetType {
     if (!controller?.editing) return false;
     controller.widget = this;
     controller.view = view;
+    dom.dataset.mdEditPos = String(this.editPos);
     const textarea = dom.querySelector<HTMLTextAreaElement>(".md-code-editor");
     if (!textarea) return false;
     if (!controller.composing && textarea.value !== this.source) {
