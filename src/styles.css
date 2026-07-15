@@ -89,6 +89,10 @@ kbd { padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px;
 .md-table-wrap > .md-block-actions { justify-content: flex-end; padding: 6px 8px; border-bottom: 1px solid var(--line); }
 .md-table-wrap table { width: 100%; border-collapse: collapse; font-size: .92em; }
 .md-table-wrap th, .md-table-wrap td { padding: 10px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.md-table-wrap th[tabindex]:hover, .md-table-wrap td[tabindex]:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); cursor: text; }
+.md-table-wrap th[tabindex]:focus-visible, .md-table-wrap td[tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.md-table-wrap th.editing, .md-table-wrap td.editing { padding: 5px 7px; }
+.md-table-cell-input { width: 100%; min-width: 88px; padding: 5px; border: 1px solid var(--accent); border-radius: 5px; outline: 0; background: var(--editor-bg); color: var(--text); font: .9em/1.4 var(--font-mono); }
 .md-table-wrap th:last-child, .md-table-wrap td:last-child { border-right: 0; }
 .md-table-wrap tbody tr:last-child td { border-bottom: 0; }
 .md-table-wrap th { background: var(--widget); font-weight: 650; }
@@ -99,6 +103,8 @@ kbd { padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px;
 .md-code-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; padding: 5px 8px 5px 12px; border-bottom: 1px solid var(--line); }
 .md-code-block pre { margin: 0; padding: 17px 18px; overflow: auto; }
 .md-code-block code { color: var(--text); font: 13px/1.6 var(--font-mono); white-space: pre; }
+.md-code-editor { display: block; width: 100%; min-height: 96px; max-height: 65vh; margin: 0; padding: 17px 18px; resize: vertical; overflow: auto; border: 0; outline: 0; background: var(--editor-bg); color: var(--text); font: 13px/1.6 var(--font-mono); white-space: pre; tab-size: 2; }
+.md-code-editor:focus { box-shadow: inset 0 0 0 2px var(--accent); }
 .md-code-language { color: var(--text); opacity: .78; font: 10px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
 .md-block-actions { display: flex; align-items: center; gap: 4px; }
 .md-block-action { padding: 4px 8px; color: var(--muted); border-radius: 5px; background: transparent; font-size: 10px; }

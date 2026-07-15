@@ -13,6 +13,8 @@ export interface TableInlinePart {
 
 export interface TableCellPreview {
   from: number;
+  to: number;
+  source: string;
   parts: TableInlinePart[];
 }
 
@@ -37,6 +39,8 @@ export interface PreviewConstruct extends TextRange {
   togglePos?: number;
   language?: string;
   editPos?: number;
+  editTo?: number;
+  editSuffix?: string;
   table?: TablePreview;
 }
 
@@ -83,9 +87,24 @@ function tableInlineParts(source: string, cell: SyntaxNode): TableInlinePart[] {
 }
 
 function tableCells(source: string, row: SyntaxNode): TableCellPreview[] {
-  return children(row)
-    .filter((child) => child.name === "TableCell")
-    .map((cell) => ({ from: cell.from, parts: tableInlineParts(source, cell) }));
+  const parts = children(row);
+  const cells = parts.filter((child) => child.name === "TableCell");
+  const delimiters = parts.filter((child) => child.name === "TableDelimiter");
+  const hasLeftEdge = delimiters[0]?.from === row.from;
+  const hasRightEdge = delimiters.at(-1)?.to === row.to;
+  const separators = delimiters.slice(hasLeftEdge ? 1 : 0, hasRightEdge ? -1 : undefined);
+  const starts = [hasLeftEdge ? delimiters[0]!.to : row.from, ...separators.map(({ to }) => to)];
+  const ends = [...separators.map(({ from }) => from), hasRightEdge ? delimiters.at(-1)!.from : row.to];
+  return starts.map((from, index) => {
+    const to = ends[index] ?? from;
+    const cell = cells.find((candidate) => candidate.from >= from && candidate.to <= to);
+    return {
+      from,
+      to,
+      source: source.slice(from, to),
+      parts: cell ? tableInlineParts(source, cell) : [{ kind: "text", text: "" }],
+    };
+  });
 }
 
 function tableAlignment(source: string, delimiter: SyntaxNode): TableAlignment[] {
@@ -182,14 +201,19 @@ export function markdownConstructs(source: string, tree: Tree): PreviewConstruct
           return false;
         }
         if (fences.length === 2) {
+          const closingLineStart = source.lastIndexOf("\n", fences[1]!.from - 1) + 1;
+          const codeEndsWithStructuralNewline = Boolean(code && code.to === closingLineStart && source[code.to - 1] === "\n");
+          const editableCodeTo = code ? code.to - (codeEndsWithStructuralNewline ? 1 : 0) : closingLineStart;
           constructs.push({
             kind: "codeBlock",
             from: node.from,
             to: node.to,
             markers: [],
-            text: code ? source.slice(code.from, code.to) : "",
+            text: code ? source.slice(code.from, editableCodeTo) : "",
             language,
-            editPos: code?.from ?? fences[0]!.to,
+            editPos: code?.from ?? closingLineStart,
+            editTo: editableCodeTo,
+            editSuffix: code ? "" : "\n",
           });
           return false;
         }
@@ -202,4 +226,10 @@ export function markdownConstructs(source: string, tree: Tree): PreviewConstruct
 
 export function rangeIsActive(range: TextRange, selections: readonly TextRange[]): boolean {
   return selections.some((selection) => selection.from <= range.to && selection.to >= range.from);
+}
+
+export function blockRangeIsActive(range: TextRange, selections: readonly TextRange[]): boolean {
+  return selections.some((selection) => selection.from === selection.to
+    ? selection.from > range.from && selection.from < range.to
+    : selection.from < range.to && selection.to > range.from);
 }

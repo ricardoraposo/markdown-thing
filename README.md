@@ -7,7 +7,7 @@ A small Linux-first desktop Markdown editor where the rendered document **is** t
 - Vim-first editing through CodeMirror 6 (`Normal`, `Insert`, visual selections, search, undo/redo, and standard Vim motions/operators)
 - Inline headings, emphasis, strong emphasis, links, circular bullets, and full-width dividers
 - Interactive `- [ ]` task lists with mouse and Vim toggles
-- Rendered GFM tables, inline code, and syntax-highlighted fenced code blocks
+- Rendered GFM tables and syntax-highlighted code blocks with direct in-place editing
 - Inline local, HTTPS, and `data:image/*` images
 - Lazy-rendered Mermaid fenced blocks
 - Command-line-only file opening with no picker or toolbar chrome
@@ -60,7 +60,7 @@ The editor starts in Vim Normal mode.
 | Search | `/` in Normal mode |
 | Undo / redo | `u` / `Ctrl+R` in Normal mode |
 
-Supported live constructs are ATX headings, emphasis, strong emphasis, inline links, circular bullet lists, horizontal rules, interactive task lists, GFM tables, inline and syntax-highlighted fenced code, Markdown images, and Mermaid fences. Highlighting is loaded lazily for Ruby, JavaScript/TypeScript, JSX/TSX, JSON, HTML/CSS, Python, Rust, Go, Bash, SQL, YAML, and Markdown. The Vim leader key can be changed from the `Ctrl+,` settings modal.
+Supported live constructs are ATX headings, emphasis, strong emphasis, inline links, circular bullet lists, horizontal rules, interactive task lists, GFM tables, inline and syntax-highlighted fenced code, Markdown images, and Mermaid fences. Table cells edit their raw inline Markdown directly inside the rendered grid, and ordinary fenced code edits inside its rendered card. Highlighting is loaded lazily for Ruby, JavaScript/TypeScript, JSX/TSX, JSON, HTML/CSS, Python, Rust, Go, Bash, SQL, YAML, and Markdown. The Vim leader key can be changed from the `Ctrl+,` settings modal.
 
 Relative images are resolved from the Markdown file's directory and must remain within that directory. The native backend only saves or resolves images for document paths authorized by command-line launches. Local PNG, JPEG, GIF, and WebP images are content-validated and limited to 10 MiB. Remote images must use HTTPS.
 

@@ -1,6 +1,6 @@
 import { markdownLanguage } from "@codemirror/lang-markdown";
 import { describe, expect, it } from "vitest";
-import { markdownConstructs, rangeIsActive } from "../src/editor/markdownModel";
+import { blockRangeIsActive, markdownConstructs, rangeIsActive } from "../src/editor/markdownModel";
 
 function parse(source: string) { return markdownConstructs(source, markdownLanguage.parser.parse(source)); }
 
@@ -48,13 +48,34 @@ describe("markdownConstructs", () => {
     const constructs = parse(source);
     expect(constructs.map(({ kind }) => kind)).toEqual(["table", "inlineCode", "codeBlock"]);
     expect(constructs[0]?.table).toMatchObject({ alignments: ["left", "right"] });
+    expect(constructs[0]?.table?.header[0]).toMatchObject({ source: " Name ", parts: [{ kind: "text", text: "Name" }] });
     expect(constructs[0]?.table?.rows[0]?.[0]?.parts).toEqual([{ kind: "code", text: "one" }]);
+    expect(source.slice(constructs[0]!.table!.rows[0]![0]!.from, constructs[0]!.table!.rows[0]![0]!.to)).toBe(" `one` ");
     expect(constructs[2]).toMatchObject({ language: "ts", text: "const x = 1;" });
+    expect(source.slice(constructs[2]!.editPos, constructs[2]!.editTo)).toBe("const x = 1;");
 
     const escapedTable = parse("| A | B |\n| --- | --- |\n| a\\|b | c |\n| `a\\|b` | **a\\|b** |\n")[0]?.table;
     expect(escapedTable?.rows[0]?.[0]?.parts.map(({ text }) => text).join("")).toBe("a|b");
     expect(escapedTable?.rows[1]?.[0]?.parts).toEqual([{ kind: "code", text: "a|b" }]);
     expect(escapedTable?.rows[1]?.[1]?.parts).toEqual([{ kind: "strong", text: "a|b" }]);
+  });
+
+  it("models empty table cells and empty fenced code with editable ranges", () => {
+    const table = parse("| A |  | C |\n|---|---|---|\n| | x | |\n")[0]?.table;
+    expect(table?.header.map(({ source }) => source)).toEqual([" A ", "  ", " C "]);
+    expect(table?.rows[0]?.map(({ source }) => source)).toEqual([" ", " x ", " "]);
+
+    const emptyCodeSource = "  ```ruby\n  ```";
+    const code = parse(emptyCodeSource)[0];
+    expect(code).toMatchObject({ kind: "codeBlock", text: "", editSuffix: "\n" });
+    expect(code?.editPos).toBe(emptyCodeSource.lastIndexOf("\n") + 1);
+    expect(code?.editTo).toBe(code?.editPos);
+
+    const blankCodeSource = "```js\n\n```";
+    const blank = parse(blankCodeSource)[0];
+    expect(blank).toMatchObject({ kind: "codeBlock", text: "", editSuffix: "" });
+    expect(blank?.editPos).toBe(blank?.editTo);
+    expect(blankCodeSource[blank!.editPos!]).toBe("\n");
   });
 
   it("does not hide incomplete syntax", () => {
@@ -73,5 +94,12 @@ describe("rangeIsActive", () => {
   });
   it("ignores non-intersecting selections", () => {
     expect(rangeIsActive(construct, [{ from: 0, to: 3 }, { from: 11, to: 12 }])).toBe(false);
+  });
+
+  it("keeps block widgets rendered at boundaries but reveals their interior", () => {
+    expect(blockRangeIsActive(construct, [{ from: 4, to: 4 }])).toBe(false);
+    expect(blockRangeIsActive(construct, [{ from: 10, to: 10 }])).toBe(false);
+    expect(blockRangeIsActive(construct, [{ from: 5, to: 5 }])).toBe(true);
+    expect(blockRangeIsActive(construct, [{ from: 0, to: 5 }])).toBe(true);
   });
 });
