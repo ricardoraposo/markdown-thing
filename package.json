@@ -11,7 +11,7 @@
     "test": "vitest",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "NO_STRIP=true tauri build"
+    "tauri:build": "ARCH=x86_64 NO_STRIP=true tauri build"
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.1",
