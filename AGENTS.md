@@ -12,7 +12,7 @@ Markdown Thing is a lightweight, Linux-first, Vim-first Tauri desktop editor. Th
 - Do not introduce React, ProseMirror, Electron, a frontend component framework, export, file watching, or a plugin system without explicit product approval.
 - Keep file opening command-line-only. Do not add file pickers, Open buttons, Save As dialogs, or permanent toolbar chrome.
 - Keep tabs minimal and create them only when later command-line launches target additional files.
-- Mermaid must remain dynamically imported. Do not add it to the initial application chunk.
+- Mermaid and Shiki must remain dynamically imported. Do not add either renderer or its grammars/themes to the initial application chunk.
 
 ## Architecture
 

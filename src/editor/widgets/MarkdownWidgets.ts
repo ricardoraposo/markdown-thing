@@ -91,12 +91,12 @@ export class TableWidget extends WidgetType {
 }
 
 export class CodeBlockWidget extends WidgetType {
-  constructor(readonly source: string, readonly language: string, readonly editPos: number) {
+  constructor(readonly source: string, readonly language: string, readonly editPos: number, readonly theme: "light" | "dark") {
     super();
   }
 
   eq(other: CodeBlockWidget): boolean {
-    return this.source === other.source && this.language === other.language && this.editPos === other.editPos;
+    return this.source === other.source && this.language === other.language && this.editPos === other.editPos && this.theme === other.theme;
   }
 
   toDOM(view: EditorView): HTMLElement {
@@ -131,6 +131,33 @@ export class CodeBlockWidget extends WidgetType {
     code.textContent = this.source;
     pre.append(code);
     container.append(toolbar, pre);
+
+    if (this.language) {
+      container.setAttribute("aria-busy", "true");
+      void import("../shikiHighlighter").then(({ highlightCode }) => highlightCode(this.source, this.language, this.theme)).then((highlighted) => {
+        if (!highlighted || !container.isConnected) return;
+        const fragment = document.createDocumentFragment();
+        highlighted.lines.forEach((line, lineIndex) => {
+          for (const token of line) {
+            const span = document.createElement("span");
+            span.textContent = token.content;
+            if (token.color) span.style.color = token.color;
+            if (token.fontStyle && token.fontStyle & 1) span.style.fontStyle = "italic";
+            if (token.fontStyle && token.fontStyle & 2) span.style.fontWeight = "700";
+            if (token.fontStyle && token.fontStyle & 4) span.style.textDecoration = "underline";
+            fragment.append(span);
+          }
+          if (lineIndex < highlighted.lines.length - 1) fragment.append("\n");
+        });
+        code.replaceChildren(fragment);
+        if (highlighted.foreground) code.style.color = highlighted.foreground;
+        if (highlighted.background) pre.style.backgroundColor = highlighted.background;
+        container.setAttribute("aria-busy", "false");
+        container.classList.add("highlighted");
+      }).catch(() => {
+        if (container.isConnected) container.setAttribute("aria-busy", "false");
+      });
+    }
     return container;
   }
 }

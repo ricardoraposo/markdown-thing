@@ -58,7 +58,7 @@ export function buildDecorations(state: EditorState): DecorationSet {
     } else if (construct.kind === "table" && construct.table && construct.editPos !== undefined) {
       ranges.push(Decoration.replace({ block: true, widget: new TableWidget(construct.text ?? "", construct.table, construct.editPos) }).range(construct.from, construct.to));
     } else if (construct.kind === "codeBlock" && construct.editPos !== undefined) {
-      ranges.push(Decoration.replace({ block: true, widget: new CodeBlockWidget(construct.text ?? "", construct.language ?? "", construct.editPos) }).range(construct.from, construct.to));
+      ranges.push(Decoration.replace({ block: true, widget: new CodeBlockWidget(construct.text ?? "", construct.language ?? "", construct.editPos, context.theme) }).range(construct.from, construct.to));
     } else {
       for (const marker of construct.markers) {
         if (marker.from < marker.to) ranges.push(Decoration.replace({}).range(marker.from, marker.to));

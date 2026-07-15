@@ -4,7 +4,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { Table, TaskList } from "@lezer/markdown";
 import { EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { livePreview } from "../src/editor/livePreview";
 
 let view: EditorView | null = null;
@@ -78,7 +78,7 @@ describe("livePreview", () => {
     expect(view.state.doc.toString()).toBe(tableSource);
   });
 
-  it("renders inline and fenced code while retaining exact source", () => {
+  it("renders and syntax-highlights inline and fenced code while retaining exact source", async () => {
     const codeSource = "Use `inline`.\n\n```ts\nconst x = 1;\n```\n\nTail";
     const state = EditorState.create({
       doc: codeSource,
@@ -92,6 +92,8 @@ describe("livePreview", () => {
     expect(view.dom.querySelector(".md-code-block pre")?.getAttribute("tabindex")).toBe("0");
     expect(view.dom.querySelector(".md-code-block code")?.textContent).toBe("const x = 1;");
     expect(view.dom.querySelectorAll(".md-code-block .md-block-action")).toHaveLength(2);
+    await vi.waitFor(() => expect(view?.dom.querySelector(".md-code-block")?.classList.contains("highlighted")).toBe(true), { timeout: 2000 });
+    expect(view.dom.querySelector(".md-code-block code span")?.getAttribute("style")).toContain("color");
     expect(view.state.doc.toString()).toBe(codeSource);
   });
 
