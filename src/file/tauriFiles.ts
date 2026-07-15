@@ -10,15 +10,13 @@ export interface SavedDocument {
 }
 
 export interface FileAdapter {
-  open(): Promise<OpenedDocument | null>;
+  initial(): Promise<OpenedDocument | null>;
   save(path: string, content: string): Promise<SavedDocument>;
-  saveAs(content: string, suggestedName?: string): Promise<SavedDocument | null>;
 }
 
 export const tauriFiles: FileAdapter = {
-  open: () => invoke<OpenedDocument | null>("open_markdown"),
+  initial: () => invoke<OpenedDocument | null>("initial_document"),
   save: (path, content) => invoke<SavedDocument>("save_markdown", { path, content }),
-  saveAs: (content, suggestedName) => invoke<SavedDocument | null>("save_markdown_as", { content, suggestedName }),
 };
 
 export async function loadLocalImage(documentPath: string, target: string): Promise<string> {

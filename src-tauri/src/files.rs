@@ -1,11 +1,11 @@
 use std::{
     collections::HashSet,
+    env,
     path::{Path, PathBuf},
     sync::Mutex,
 };
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use rfd::AsyncFileDialog;
 use serde::Serialize;
 
 const MAX_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
@@ -33,10 +33,43 @@ impl FileAuthorization {
             .lock()
             .map_err(|_| "File authorization state is unavailable".to_owned())?;
         if !authorized.contains(&canonical) {
-            return Err("File access was not authorized by an Open or Save As dialog".to_owned());
+            return Err("File access was not authorized by a command-line launch".to_owned());
         }
         Ok(canonical)
     }
+}
+
+pub struct StartupFile {
+    path: Result<Option<PathBuf>, String>,
+}
+
+pub fn startup_file_from_env() -> StartupFile {
+    let argument = env::args_os().nth(1).map(PathBuf::from);
+    let path = env::current_dir()
+        .map_err(|error| format!("Could not determine the working directory: {error}"))
+        .and_then(|cwd| resolve_startup_argument(argument, &cwd));
+    StartupFile { path }
+}
+
+fn resolve_startup_argument(
+    argument: Option<PathBuf>,
+    working_directory: &Path,
+) -> Result<Option<PathBuf>, String> {
+    let Some(argument) = argument else {
+        return Ok(None);
+    };
+    let candidate = if argument.is_absolute() {
+        argument
+    } else {
+        working_directory.join(argument)
+    };
+    let path = candidate
+        .canonicalize()
+        .map_err(|error| format!("Could not open {}: {error}", candidate.display()))?;
+    if !path.is_file() {
+        return Err(format!("{} is not a file", path.display()));
+    }
+    Ok(Some(path))
 }
 
 #[derive(Debug, Serialize)]
@@ -70,28 +103,30 @@ async fn write_utf8(path: &Path, content: &str) -> Result<(), String> {
         .map_err(|error| format!("Could not save file: {error}"))
 }
 
-#[tauri::command]
-pub async fn open_markdown(
-    authorization: tauri::State<'_, FileAuthorization>,
-) -> Result<Option<OpenedDocument>, String> {
-    let Some(file) = AsyncFileDialog::new()
-        .add_filter("Markdown and text", &["md", "markdown", "mdown", "txt"])
-        .add_filter("All files", &["*"])
-        .pick_file()
-        .await
-    else {
-        return Ok(None);
-    };
-    let path = file
-        .path()
+async fn open_document(
+    authorization: &FileAuthorization,
+    path: &Path,
+) -> Result<OpenedDocument, String> {
+    let path = path
         .canonicalize()
         .map_err(|error| format!("Could not resolve selected file: {error}"))?;
     let content = read_utf8(&path).await?;
     authorization.authorize(path.clone())?;
-    Ok(Some(OpenedDocument {
+    Ok(OpenedDocument {
         path: display_path(&path)?,
         content,
-    }))
+    })
+}
+
+#[tauri::command]
+pub async fn initial_document(
+    authorization: tauri::State<'_, FileAuthorization>,
+    startup_file: tauri::State<'_, StartupFile>,
+) -> Result<Option<OpenedDocument>, String> {
+    let Some(path) = startup_file.path.as_ref().map_err(Clone::clone)? else {
+        return Ok(None);
+    };
+    open_document(&authorization, path).await.map(Some)
 }
 
 async fn authorized_save(
@@ -114,30 +149,6 @@ pub async fn save_markdown(
     Ok(SavedDocument {
         path: display_path(&path)?,
     })
-}
-
-#[tauri::command]
-pub async fn save_markdown_as(
-    authorization: tauri::State<'_, FileAuthorization>,
-    content: String,
-    suggested_name: Option<String>,
-) -> Result<Option<SavedDocument>, String> {
-    let mut dialog = AsyncFileDialog::new().add_filter("Markdown", &["md", "markdown"]);
-    if let Some(name) = suggested_name {
-        dialog = dialog.set_file_name(name);
-    }
-    let Some(file) = dialog.save_file().await else {
-        return Ok(None);
-    };
-    write_utf8(file.path(), &content).await?;
-    let path = file
-        .path()
-        .canonicalize()
-        .map_err(|error| format!("Could not resolve saved file: {error}"))?;
-    authorization.authorize(path.clone())?;
-    Ok(Some(SavedDocument {
-        path: display_path(&path)?,
-    }))
 }
 
 fn resolve_local_image(document_path: &Path, target: &str) -> Result<PathBuf, String> {
@@ -231,6 +242,26 @@ mod tests {
     }
 
     #[test]
+    fn resolves_relative_startup_file_from_working_directory() {
+        let dir = fixture_dir();
+        let file = dir.join("TODO.md");
+        fs::write(&file, "# Todo").unwrap();
+
+        let resolved = resolve_startup_argument(Some(PathBuf::from("TODO.md")), &dir).unwrap();
+
+        assert_eq!(resolved, Some(file.canonicalize().unwrap()));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rejects_a_startup_directory() {
+        let dir = fixture_dir();
+        let error = resolve_startup_argument(Some(dir.clone()), Path::new("/")).unwrap_err();
+        assert!(error.contains("is not a file"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn local_images_cannot_escape_document_folder() {
         let dir = fixture_dir();
         let outside = dir.parent().unwrap().join("outside.png");
@@ -287,7 +318,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn save_requires_a_dialog_authorized_path() {
+    async fn save_requires_a_command_line_authorized_path() {
         let dir = fixture_dir();
         let path = dir.join("note.md");
         fs::write(&path, "original").unwrap();

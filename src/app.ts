@@ -65,9 +65,8 @@ export function mountApp(root: HTMLElement): void {
     initialDocument: WELCOME,
     theme: themes.resolved,
     actions: {
-      open: () => { void controller.open(); },
       save: () => { void controller.save(); },
-      saveAs: () => { void controller.saveAs(); },
+      settings: () => undefined,
     },
     onChange: () => controller?.changed(),
     onCursor: (line, column) => { position.textContent = `Ln ${line}, Col ${column}`; },
@@ -80,10 +79,9 @@ export function mountApp(root: HTMLElement): void {
     onError: (error) => showMessage(error, true),
   });
 
-  root.querySelector("#open")!.addEventListener("click", () => void controller.open());
   root.querySelector("#save")!.addEventListener("click", () => void controller.save());
-  root.querySelector("#save-as")!.addEventListener("click", () => void controller.saveAs());
   themeSelect.addEventListener("change", () => themes.set(themeSelect.value as ThemePreference));
   themes.subscribe((theme) => editor.setContext(documentState.path, theme));
+  void controller.openInitial();
   editor.focus();
 }

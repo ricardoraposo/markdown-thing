@@ -30,43 +30,30 @@ export class DocumentController {
 
   changed(): void { this.emit(); }
 
-  async open(): Promise<void> {
-    const operation = ++this.operationSequence;
+  async openInitial(): Promise<void> {
     try {
-      const opened = await this.options.files.open();
-      if (!opened || operation !== this.operationSequence) return;
+      const opened = await this.options.files.initial();
+      if (!opened) return;
       this.options.setText(opened.content);
       this.path = opened.path;
       this.savedText = this.options.getText();
       this.emit();
     } catch (error) {
-      if (operation === this.operationSequence) this.fail(error);
+      this.fail(error);
     }
   }
 
   async save(): Promise<void> {
-    if (!this.path) return this.saveAs();
+    if (!this.path) {
+      this.fail("Open a file from the terminal before saving");
+      return;
+    }
     const operation = ++this.operationSequence;
     const path = this.path;
     const content = this.options.getText();
     try {
       await this.options.files.save(path, content);
       if (operation !== this.operationSequence || this.path !== path) return;
-      this.savedText = content;
-      this.emit();
-    } catch (error) {
-      if (operation === this.operationSequence) this.fail(error);
-    }
-  }
-
-  async saveAs(): Promise<void> {
-    const operation = ++this.operationSequence;
-    const content = this.options.getText();
-    const suggestedName = this.state.name;
-    try {
-      const saved = await this.options.files.saveAs(content, suggestedName);
-      if (!saved || operation !== this.operationSequence) return;
-      this.path = saved.path;
       this.savedText = content;
       this.emit();
     } catch (error) {

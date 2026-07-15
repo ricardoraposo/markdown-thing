@@ -16,6 +16,5 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["fs", "macros", "rt"] }
-rfd = "0.15"
 base64 = "0.22"
 infer = "0.19"

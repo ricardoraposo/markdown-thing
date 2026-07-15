@@ -9,9 +9,8 @@ import type { ResolvedTheme } from "../theme/themeController";
 import { prepareDocument, serializeDocument } from "./lineEndings";
 
 export interface EditorActions {
-  open(): void;
   save(): void;
-  saveAs(): void;
+  settings(): void;
 }
 
 export interface EditorOptions {
@@ -37,9 +36,8 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
   const lineSeparatorCompartment = new Compartment();
   const initialDocument = prepareDocument(options.initialDocument);
   const shortcuts = Prec.highest(keymap.of([
-    { key: "Ctrl-o", preventDefault: true, run: () => { options.actions.open(); return true; } },
     { key: "Ctrl-s", preventDefault: true, run: () => { options.actions.save(); return true; } },
-    { key: "Ctrl-Shift-s", preventDefault: true, run: () => { options.actions.saveAs(); return true; } },
+    { key: "Ctrl-,", preventDefault: true, run: () => { options.actions.settings(); return true; } },
   ]));
   const state = EditorState.create({
     doc: initialDocument.text,

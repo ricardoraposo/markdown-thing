@@ -4,10 +4,10 @@ mod files;
 pub fn run() {
     tauri::Builder::default()
         .manage(files::FileAuthorization::default())
+        .manage(files::startup_file_from_env())
         .invoke_handler(tauri::generate_handler![
-            files::open_markdown,
+            files::initial_document,
             files::save_markdown,
-            files::save_markdown_as,
             files::load_local_image
         ])
         .run(tauri::generate_context!())
