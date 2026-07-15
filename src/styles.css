@@ -29,28 +29,35 @@
 html, body, #app { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { font-family: var(--font-ui); background: var(--editor-bg); color: var(--text); }
 button, select { font: inherit; color: inherit; }
-.app-shell { height: 100%; display: grid; grid-template-rows: 46px auto minmax(0, 1fr) 27px; }
-.toolbar, .tabbar, .statusbar { background: var(--chrome); border-color: var(--line); backdrop-filter: blur(18px); z-index: 5; }
-.toolbar { display: grid; grid-template-columns: minmax(170px, 1fr) auto minmax(170px, 1fr); align-items: center; gap: 12px; padding: 0 12px; border-bottom: 1px solid var(--line); }
-.window-title { display: flex; align-items: center; min-width: 0; gap: 8px; font-size: 13px; }
-.window-title strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-.app-mark { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; background: var(--text); color: var(--editor-bg); font-weight: 700; }
-#dirty { color: var(--accent); font-size: 10px; }
-.toolbar nav { display: flex; gap: 3px; padding: 3px; border-radius: 8px; background: var(--widget); }
-button, select { border: 0; border-radius: 6px; background: transparent; font-size: 12px; }
-button { padding: 5px 10px; cursor: pointer; }
-button:hover { background: var(--editor-bg); }
-button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.theme-control { justify-self: end; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
-select { padding: 5px 20px 5px 7px; background: var(--widget); }
+button, select { border: 0; border-radius: 7px; background: transparent; }
+button { cursor: pointer; }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app-shell { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) 27px; }
+.tabbar, .statusbar { background: var(--chrome); border-color: var(--line); backdrop-filter: blur(18px); z-index: 5; }
 .tabbar { display: flex; gap: 2px; min-width: 0; padding: 5px 8px 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
 .tabbar[hidden] { display: none; }
-.tabbar .tab { flex: 0 1 180px; min-width: 72px; padding: 5px 10px 7px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 6px 6px 0 0; }
+.tabbar .tab { flex: 0 1 180px; min-width: 72px; padding: 5px 10px 7px; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 6px 6px 0 0; }
+.tabbar .tab:hover { color: var(--text); background: var(--widget); }
 .tabbar .tab.active { color: var(--text); background: var(--editor-bg); }
 #editor { min-height: 0; overflow: hidden; }
 #editor > .cm-editor { height: 100%; }
-.statusbar { display: flex; justify-content: space-between; align-items: center; padding: 0 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.statusbar { display: flex; justify-content: space-between; align-items: center; padding: 0 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; user-select: none; }
 .statusbar .error { color: var(--error); }
+.settings-dialog { width: min(480px, calc(100vw - 32px)); margin: auto; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--editor-bg); color: var(--text); box-shadow: 0 24px 80px rgba(0, 0, 0, .32); }
+.settings-dialog::backdrop { background: rgba(8, 10, 14, .56); backdrop-filter: blur(4px); }
+.settings-dialog form { display: grid; gap: 0; }
+.settings-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 22px 18px; border-bottom: 1px solid var(--line); }
+.settings-header h2 { margin: 2px 0 0; font-size: 21px; letter-spacing: -.02em; }
+.eyebrow { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.icon-button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; color: var(--muted); font-size: 22px; line-height: 1; }
+.icon-button:hover { color: var(--text); background: var(--widget); }
+.settings-section { display: grid; gap: 18px; padding: 22px; }
+.settings-section h3 { margin: 0 0 4px; font-size: 14px; }
+.settings-section p { margin: 0; color: var(--muted); font-size: 12px; }
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; font-size: 13px; }
+.setting-row select { min-width: 112px; padding: 7px 28px 7px 10px; background: var(--widget); }
+.settings-hint { margin: 0; padding: 12px 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+kbd { padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--widget); font: 10px var(--font-mono); }
 
 .cm-editor .md-heading { font-weight: 700; letter-spacing: -.025em; line-height: 1.35; }
 .cm-editor .md-heading-1 { font-size: 2em; }
@@ -72,7 +79,5 @@ select { padding: 5px 20px 5px 7px; background: var(--widget); }
 .cm-vim-panel { padding: 4px 12px; }
 
 @media (max-width: 650px) {
-  .toolbar { grid-template-columns: 1fr auto; }
-  .toolbar nav { order: 3; display: none; }
   .cm-editor .cm-scroller { padding-left: 18px !important; padding-right: 18px !important; }
 }
