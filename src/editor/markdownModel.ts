@@ -1,6 +1,6 @@
 import type { Tree } from "@lezer/common";
 
-export type PreviewKind = "heading" | "emphasis" | "strong" | "link" | "image" | "mermaid";
+export type PreviewKind = "heading" | "emphasis" | "strong" | "link" | "image" | "mermaid" | "bullet" | "divider" | "task";
 
 export interface TextRange {
   from: number;
@@ -13,6 +13,8 @@ export interface PreviewConstruct extends TextRange {
   markers: TextRange[];
   text?: string;
   target?: string;
+  checked?: boolean;
+  togglePos?: number;
 }
 
 function children(node: import("@lezer/common").SyntaxNode): import("@lezer/common").SyntaxNode[] {
@@ -28,7 +30,29 @@ export function markdownConstructs(source: string, tree: Tree): PreviewConstruct
       const node = nodeRef.node;
       const name = node.name;
       const parts = children(node);
-      if (/^ATXHeading[1-6]$/.test(name)) {
+      if (name === "ListItem") {
+        const listMark = parts.find((part) => part.name === "ListMark");
+        const task = parts.find((part) => part.name === "Task");
+        const taskMarker = task?.firstChild?.name === "TaskMarker" ? task.firstChild : null;
+        if (listMark && taskMarker) {
+          const marker = source.slice(taskMarker.from, taskMarker.to);
+          constructs.push({
+            kind: "task",
+            from: node.from,
+            to: node.to,
+            markers: [{ from: listMark.from, to: taskMarker.to }],
+            checked: /^\[[xX]\]$/.test(marker),
+            togglePos: taskMarker.from + 1,
+          });
+          return false;
+        }
+        if (listMark) {
+          constructs.push({ kind: "bullet", from: node.from, to: node.to, markers: [{ from: listMark.from, to: listMark.to }] });
+        }
+      } else if (name === "HorizontalRule") {
+        constructs.push({ kind: "divider", from: node.from, to: node.to, markers: [{ from: node.from, to: node.to }] });
+        return false;
+      } else if (/^ATXHeading[1-6]$/.test(name)) {
         const mark = parts.find((part) => part.name === "HeaderMark");
         if (mark) constructs.push({ kind: "heading", from: node.from, to: node.to, level: Number(name.at(-1)), markers: [{ from: mark.from, to: mark.to }] });
       } else if (name === "Emphasis" || name === "StrongEmphasis") {

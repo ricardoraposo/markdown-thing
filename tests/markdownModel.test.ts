@@ -29,6 +29,15 @@ describe("markdownConstructs", () => {
     expect(constructs.map(({ from }) => from)).toEqual([...constructs.map(({ from }) => from)].sort((a, b) => a - b));
   });
 
+  it("classifies bullets, dividers, and task markers without changing source", () => {
+    const source = "- item\n\n---\n\n- [ ] open\n- [x] done\n";
+    const constructs = parse(source);
+    expect(constructs.map(({ kind }) => kind)).toEqual(["bullet", "divider", "task", "task"]);
+    expect(constructs[2]).toMatchObject({ checked: false });
+    expect(constructs[3]).toMatchObject({ checked: true });
+    expect(source).toBe("- item\n\n---\n\n- [ ] open\n- [x] done\n");
+  });
+
   it("does not hide incomplete syntax", () => {
     expect(parse("A **half finished")).toEqual([]);
   });

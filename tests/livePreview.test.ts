@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { markdown } from "@codemirror/lang-markdown";
+import { TaskList } from "@lezer/markdown";
 import { EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it } from "vitest";
@@ -41,6 +42,23 @@ describe("livePreview", () => {
     view.dispatch({ selection: EditorSelection.cursor(2) });
     expect(view.contentDOM.textContent).toContain("**bold** tail");
     expect(view.state.doc.toString()).toBe(inline);
+  });
+
+  it("renders bullets, dividers, and clickable task checkboxes without changing other source", () => {
+    const richSource = "- item\n\n- [ ] task\n\n---\n\nTail";
+    const state = EditorState.create({
+      doc: richSource,
+      selection: EditorSelection.cursor(richSource.length),
+      extensions: [markdown({ extensions: [TaskList] }), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+
+    expect(view.dom.querySelector(".md-bullet")).not.toBeNull();
+    expect(view.dom.querySelector(".md-divider")).not.toBeNull();
+    const checkbox = view.dom.querySelector<HTMLButtonElement>(".md-task-checkbox");
+    expect(checkbox?.getAttribute("aria-checked")).toBe("false");
+    checkbox?.click();
+    expect(view.state.doc.toString()).toBe("- item\n\n- [x] task\n\n---\n\nTail");
   });
 
   it("survives edits next to hidden marker ranges", () => {

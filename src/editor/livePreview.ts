@@ -1,9 +1,10 @@
 import { syntaxTree } from "@codemirror/language";
 import { StateEffect, StateField, type EditorState } from "@codemirror/state";
-import { Decoration, ViewPlugin, type DecorationSet, type EditorView, type ViewUpdate } from "@codemirror/view";
+import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import { markdownConstructs, rangeIsActive, type TextRange } from "./markdownModel";
 import { ImageWidget } from "./widgets/ImageWidget";
 import { MermaidWidget } from "./widgets/MermaidWidget";
+import { BulletWidget, DividerWidget, TaskWidget } from "./widgets/MarkdownWidgets";
 
 export interface PreviewContext {
   documentPath: string | null;
@@ -44,6 +45,14 @@ export function buildDecorations(state: EditorState): DecorationSet {
       ranges.push(Decoration.replace({ widget: new ImageWidget(construct.target, construct.text ?? "", context.documentPath) }).range(construct.from, construct.to));
     } else if (construct.kind === "mermaid") {
       ranges.push(Decoration.replace({ block: true, widget: new MermaidWidget(construct.text ?? "", context.theme) }).range(construct.from, construct.to));
+    } else if (construct.kind === "bullet") {
+      const marker = construct.markers[0];
+      if (marker) ranges.push(Decoration.replace({ widget: new BulletWidget() }).range(marker.from, marker.to));
+    } else if (construct.kind === "divider") {
+      ranges.push(Decoration.replace({ block: true, widget: new DividerWidget() }).range(construct.from, construct.to));
+    } else if (construct.kind === "task" && construct.togglePos !== undefined) {
+      const marker = construct.markers[0];
+      if (marker) ranges.push(Decoration.replace({ widget: new TaskWidget(construct.checked ?? false, construct.togglePos) }).range(marker.from, marker.to));
     } else {
       for (const marker of construct.markers) {
         if (marker.from < marker.to) ranges.push(Decoration.replace({}).range(marker.from, marker.to));
@@ -54,26 +63,17 @@ export function buildDecorations(state: EditorState): DecorationSet {
   return Decoration.set(ranges, true);
 }
 
-class LivePreviewPlugin {
-  decorations: DecorationSet;
-
-  constructor(view: EditorView) {
-    this.decorations = buildDecorations(view.state);
-  }
-
-  update(update: ViewUpdate): void {
-    const contextChanged = update.transactions.some((transaction) =>
-      transaction.effects.some((effect) => effect.is(setPreviewContext)),
-    );
-    const parseTreeChanged = syntaxTree(update.startState) !== syntaxTree(update.state);
-    if (update.docChanged || update.selectionSet || update.viewportChanged || contextChanged || parseTreeChanged) {
-      this.decorations = buildDecorations(update.state);
+const decorationField = StateField.define<DecorationSet>({
+  create: buildDecorations,
+  update(value, transaction) {
+    const contextChanged = transaction.effects.some((effect) => effect.is(setPreviewContext));
+    const parseTreeChanged = syntaxTree(transaction.startState) !== syntaxTree(transaction.state);
+    if (transaction.docChanged || transaction.selection || contextChanged || parseTreeChanged) {
+      return buildDecorations(transaction.state);
     }
-  }
-}
-
-const previewPlugin = ViewPlugin.fromClass(LivePreviewPlugin, {
-  decorations: (plugin) => plugin.decorations,
+    return value;
+  },
+  provide: (field) => EditorView.decorations.from(field),
 });
 
-export const livePreview = [contextField, previewPlugin];
+export const livePreview = [contextField, decorationField];

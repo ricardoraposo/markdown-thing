@@ -1,5 +1,6 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
+import { TaskList } from "@lezer/markdown";
 import { bracketMatching, defaultHighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { Compartment, EditorState, Prec, StateEffect } from "@codemirror/state";
 import { drawSelection, dropCursor, highlightSpecialChars, keymap, EditorView } from "@codemirror/view";
@@ -8,6 +9,7 @@ import { livePreview, setPreviewContext } from "./livePreview";
 import { darkEditorTheme, lightEditorTheme } from "../theme/editorThemes";
 import type { ResolvedTheme } from "../theme/themeController";
 import { prepareDocument, serializeDocument } from "./lineEndings";
+import { installTaskVimMapping } from "./vimTaskMapping";
 
 export interface EditorActions {
   save(): void;
@@ -36,6 +38,7 @@ export interface MarkdownEditor {
 }
 
 export function createEditor(options: EditorOptions): MarkdownEditor {
+  installTaskVimMapping();
   const themeCompartment = new Compartment();
   const lineSeparatorCompartment = new Compartment();
   const initialDocument = prepareDocument(options.initialDocument);
@@ -64,7 +67,7 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       bracketMatching(),
       keymap.of([...defaultKeymap, ...historyKeymap]),
-      markdown(),
+      markdown({ extensions: [TaskList] }),
       EditorView.lineWrapping,
       shortcuts,
       livePreview,
