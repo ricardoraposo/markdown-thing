@@ -36,23 +36,35 @@ function activateSource(view: EditorView, position: number): void {
   view.focus();
 }
 
+function editButton(view: EditorView, position: number, label: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "md-block-action";
+  button.textContent = "Edit";
+  button.setAttribute("aria-label", label);
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    activateSource(view, position);
+  });
+  return button;
+}
+
 export class TableWidget extends WidgetType {
-  constructor(readonly source: string, readonly table: TablePreview) {
+  constructor(readonly source: string, readonly table: TablePreview, readonly editPos: number) {
     super();
   }
 
   eq(other: TableWidget): boolean {
-    return this.source === other.source;
+    return this.source === other.source && this.editPos === other.editPos;
   }
 
-  private addCells(view: EditorView, row: HTMLTableRowElement, cells: TableCellPreview[], header: boolean): void {
+  private addCells(row: HTMLTableRowElement, cells: TableCellPreview[], header: boolean): void {
     cells.forEach((cell, index) => {
       const element = document.createElement(header ? "th" : "td");
       if (header) element.setAttribute("scope", "col");
       const alignment = this.table.alignments[index];
       if (alignment) element.style.textAlign = alignment;
       element.append(...cell.parts.map(renderTablePart));
-      element.addEventListener("click", () => activateSource(view, cell.from));
       row.append(element);
     });
   }
@@ -60,14 +72,20 @@ export class TableWidget extends WidgetType {
   toDOM(view: EditorView): HTMLElement {
     const wrapper = document.createElement("div");
     wrapper.className = "md-table-wrap";
+    wrapper.tabIndex = 0;
+    wrapper.setAttribute("role", "region");
+    wrapper.setAttribute("aria-label", "Markdown table; scroll horizontally when needed");
+    const actions = document.createElement("div");
+    actions.className = "md-block-actions";
+    actions.append(editButton(view, this.editPos, "Edit Markdown table source"));
     const table = document.createElement("table");
     const head = table.createTHead();
     const headerRow = head.insertRow();
-    this.addCells(view, headerRow, this.table.header, true);
+    this.addCells(headerRow, this.table.header, true);
     const body = table.createTBody();
-    for (const cells of this.table.rows) this.addCells(view, body.insertRow(), cells, false);
+    for (const cells of this.table.rows) this.addCells(body.insertRow(), cells, false);
     table.setAttribute("aria-label", "Markdown table");
-    wrapper.append(table);
+    wrapper.append(actions, table);
     return wrapper;
   }
 }
@@ -84,20 +102,35 @@ export class CodeBlockWidget extends WidgetType {
   toDOM(view: EditorView): HTMLElement {
     const container = document.createElement("div");
     container.className = "md-code-block";
+    container.tabIndex = 0;
     container.setAttribute("role", "region");
-    container.setAttribute("aria-label", this.language ? `${this.language} code block` : "Code block");
-    if (this.language) {
-      const label = document.createElement("span");
-      label.className = "md-code-language";
-      label.textContent = this.language;
-      container.append(label);
-    }
+    container.setAttribute("aria-label", this.language ? `${this.language} code block; scroll horizontally when needed` : "Code block; scroll horizontally when needed");
+    const toolbar = document.createElement("div");
+    toolbar.className = "md-code-toolbar";
+    const label = document.createElement("span");
+    label.className = "md-code-language";
+    label.textContent = this.language || "Code";
+    const actions = document.createElement("span");
+    actions.className = "md-block-actions";
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "md-block-action";
+    copy.textContent = "Copy";
+    copy.setAttribute("aria-label", "Copy code block");
+    copy.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void navigator.clipboard?.writeText(this.source).then(() => {
+        copy.textContent = "Copied";
+        window.setTimeout(() => { copy.textContent = "Copy"; }, 1200);
+      }).catch(() => { copy.textContent = "Copy failed"; });
+    });
+    actions.append(copy, editButton(view, this.editPos, "Edit code block source"));
+    toolbar.append(label, actions);
     const pre = document.createElement("pre");
     const code = document.createElement("code");
     code.textContent = this.source;
     pre.append(code);
-    container.append(pre);
-    container.addEventListener("click", () => activateSource(view, this.editPos));
+    container.append(toolbar, pre);
     return container;
   }
 }

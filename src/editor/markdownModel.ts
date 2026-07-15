@@ -57,7 +57,9 @@ function tableInlineParts(source: string, cell: SyntaxNode): TableInlinePart[] {
   for (const child of children(cell)) {
     if (cursor < child.from) add("text", source.slice(cursor, child.from));
     const parts = children(child);
-    if (child.name === "InlineCode") {
+    if (child.name === "Escape") {
+      add("text", source.slice(child.from + 1, child.to));
+    } else if (child.name === "InlineCode") {
       const marks = parts.filter((part) => part.name === "CodeMark");
       add("code", marks.length === 2 ? source.slice(marks[0]!.to, marks[1]!.from) : source.slice(child.from, child.to));
     } else if (child.name === "StrongEmphasis" || child.name === "Emphasis") {

@@ -50,6 +50,9 @@ describe("markdownConstructs", () => {
     expect(constructs[0]?.table).toMatchObject({ alignments: ["left", "right"] });
     expect(constructs[0]?.table?.rows[0]?.[0]?.parts).toEqual([{ kind: "code", text: "one" }]);
     expect(constructs[2]).toMatchObject({ language: "ts", text: "const x = 1;" });
+
+    const escaped = parse("| A | B |\n| --- | --- |\n| a\\|b | c |\n")[0]?.table?.rows[0]?.[0]?.parts;
+    expect(escaped?.map(({ text }) => text).join("")).toBe("a|b");
   });
 
   it("does not hide incomplete syntax", () => {

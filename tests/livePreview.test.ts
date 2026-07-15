@@ -61,7 +61,7 @@ describe("livePreview", () => {
     expect(view.state.doc.toString()).toBe("- item\n\n- [x] task\n\n---\n\nTail");
   });
 
-  it("renders a GFM table and reveals its source when a cell is clicked", () => {
+  it("renders a GFM table and reveals its source from a keyboard-accessible Edit control", () => {
     const tableSource = "| Name | Value |\n| :--- | ---: |\n| `one` | 1 |\n\nTail";
     const state = EditorState.create({
       doc: tableSource,
@@ -71,8 +71,9 @@ describe("livePreview", () => {
     view = new EditorView({ state, parent: document.body });
 
     expect(view.dom.querySelectorAll(".md-table-wrap th")).toHaveLength(2);
+    expect(view.dom.querySelector(".md-table-wrap")?.getAttribute("tabindex")).toBe("0");
     expect(view.dom.querySelector(".md-table-wrap code")?.textContent).toBe("one");
-    view.dom.querySelector<HTMLElement>(".md-table-wrap td")?.click();
+    view.dom.querySelector<HTMLButtonElement>(".md-table-wrap .md-block-action")?.click();
     expect(view.contentDOM.textContent).toContain("| Name | Value |");
     expect(view.state.doc.toString()).toBe(tableSource);
   });
@@ -88,8 +89,24 @@ describe("livePreview", () => {
 
     expect(view.dom.querySelector(".md-inline-code")?.textContent).toBe("inline");
     expect(view.dom.querySelector(".md-code-language")?.textContent).toBe("ts");
+    expect(view.dom.querySelector(".md-code-block")?.getAttribute("tabindex")).toBe("0");
     expect(view.dom.querySelector(".md-code-block code")?.textContent).toBe("const x = 1;");
+    expect(view.dom.querySelectorAll(".md-code-block .md-block-action")).toHaveLength(2);
     expect(view.state.doc.toString()).toBe(codeSource);
+  });
+
+  it("keeps hostile table and code content inert", () => {
+    const hostile = "| Value |\n| --- |\n| <img src=x onerror=alert(1)> |\n\n```html\n<script>alert(1)</script>\n```\n\nTail";
+    const state = EditorState.create({
+      doc: hostile,
+      selection: EditorSelection.cursor(hostile.length),
+      extensions: [markdown({ extensions: [Table] }), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+
+    expect(view.dom.querySelector(".md-table-wrap img")).toBeNull();
+    expect(view.dom.querySelector(".md-code-block script")).toBeNull();
+    expect(view.dom.querySelector(".md-code-block code")?.textContent).toContain("<script>");
   });
 
   it("survives edits next to hidden marker ranges", () => {

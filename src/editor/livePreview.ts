@@ -55,8 +55,8 @@ export function buildDecorations(state: EditorState): DecorationSet {
     } else if (construct.kind === "task" && construct.togglePos !== undefined) {
       const marker = construct.markers[0];
       if (marker) ranges.push(Decoration.replace({ widget: new TaskWidget(construct.checked ?? false, construct.togglePos) }).range(marker.from, marker.to));
-    } else if (construct.kind === "table" && construct.table) {
-      ranges.push(Decoration.replace({ block: true, widget: new TableWidget(construct.text ?? "", construct.table) }).range(construct.from, construct.to));
+    } else if (construct.kind === "table" && construct.table && construct.editPos !== undefined) {
+      ranges.push(Decoration.replace({ block: true, widget: new TableWidget(construct.text ?? "", construct.table, construct.editPos) }).range(construct.from, construct.to));
     } else if (construct.kind === "codeBlock" && construct.editPos !== undefined) {
       ranges.push(Decoration.replace({ block: true, widget: new CodeBlockWidget(construct.text ?? "", construct.language ?? "", construct.editPos) }).range(construct.from, construct.to));
     } else {

@@ -60,7 +60,7 @@ The editor starts in Vim Normal mode.
 | Search | `/` in Normal mode |
 | Undo / redo | `u` / `Ctrl+R` in Normal mode |
 
-Supported live constructs are ATX headings, emphasis, strong emphasis, inline links, circular bullet lists, horizontal rules, interactive task lists, GFM tables, inline and fenced code, Markdown images, and Mermaid fences. The Vim leader key can be changed from the `Ctrl+,` settings modal. Code blocks other than Mermaid remain source text with syntax highlighting.
+Supported live constructs are ATX headings, emphasis, strong emphasis, inline links, circular bullet lists, horizontal rules, interactive task lists, GFM tables, inline and fenced code, Markdown images, and Mermaid fences. The Vim leader key can be changed from the `Ctrl+,` settings modal.
 
 Relative images are resolved from the Markdown file's directory and must remain within that directory. The native backend only saves or resolves images for document paths authorized by command-line launches. Local PNG, JPEG, GIF, and WebP images are content-validated and limited to 10 MiB. Remote images must use HTTPS.
 
