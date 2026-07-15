@@ -1,0 +1,21 @@
+[package]
+name = "markdown-thing"
+version = "0.1.0"
+description = "A Vim-first live Markdown editor"
+authors = ["Markdown Thing contributors"]
+edition = "2021"
+
+[lib]
+name = "markdown_thing_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["fs", "macros", "rt"] }
+rfd = "0.15"
+base64 = "0.22"
+infer = "0.19"

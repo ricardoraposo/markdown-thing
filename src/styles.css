@@ -1,0 +1,74 @@
+:root {
+  --font-ui: Inter, system-ui, sans-serif;
+  --font-body: Inter, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --editor-bg: #fbfaf8;
+  --chrome: rgba(247, 246, 243, .94);
+  --text: #202124;
+  --muted: #74777d;
+  --line: #deddd9;
+  --accent: #4b62d1;
+  --selection: rgba(75, 98, 209, .2);
+  --widget: #f1f0ec;
+  --error: #b42318;
+}
+
+:root[data-theme="dark"] {
+  --editor-bg: #17191d;
+  --chrome: rgba(24, 26, 30, .94);
+  --text: #e7e8eb;
+  --muted: #969ba5;
+  --line: #30343b;
+  --accent: #8fa3ff;
+  --selection: rgba(116, 140, 255, .27);
+  --widget: #202329;
+  --error: #ff8a80;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { font-family: var(--font-ui); background: var(--editor-bg); color: var(--text); }
+button, select { font: inherit; color: inherit; }
+.app-shell { height: 100%; display: grid; grid-template-rows: 46px minmax(0, 1fr) 27px; }
+.toolbar, .statusbar { background: var(--chrome); border-color: var(--line); backdrop-filter: blur(18px); z-index: 5; }
+.toolbar { display: grid; grid-template-columns: minmax(170px, 1fr) auto minmax(170px, 1fr); align-items: center; gap: 12px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+.window-title { display: flex; align-items: center; min-width: 0; gap: 8px; font-size: 13px; }
+.window-title strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.app-mark { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; background: var(--text); color: var(--editor-bg); font-weight: 700; }
+#dirty { color: var(--accent); font-size: 10px; }
+.toolbar nav { display: flex; gap: 3px; padding: 3px; border-radius: 8px; background: var(--widget); }
+button, select { border: 0; border-radius: 6px; background: transparent; font-size: 12px; }
+button { padding: 5px 10px; cursor: pointer; }
+button:hover { background: var(--editor-bg); }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.theme-control { justify-self: end; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
+select { padding: 5px 20px 5px 7px; background: var(--widget); }
+#editor { min-height: 0; overflow: hidden; }
+#editor > .cm-editor { height: 100%; }
+.statusbar { display: flex; justify-content: space-between; align-items: center; padding: 0 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.statusbar .error { color: var(--error); }
+
+.cm-editor .md-heading { font-weight: 700; letter-spacing: -.025em; line-height: 1.35; }
+.cm-editor .md-heading-1 { font-size: 2em; }
+.cm-editor .md-heading-2 { font-size: 1.55em; }
+.cm-editor .md-heading-3 { font-size: 1.3em; }
+.cm-editor .md-heading-4 { font-size: 1.12em; }
+.cm-editor .md-heading-5, .cm-editor .md-heading-6 { font-size: 1em; color: var(--muted); }
+.cm-editor .md-emphasis { font-style: italic; }
+.cm-editor .md-strong { font-weight: 700; }
+.cm-editor .md-link { color: var(--accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent); text-underline-offset: 3px; }
+.cm-editor .tok-monospace, .cm-editor .tok-string { font-family: var(--font-mono); }
+.md-image { display: inline-flex; max-width: min(100%, 720px); margin: 12px 0; vertical-align: top; border-radius: 9px; overflow: hidden; background: var(--widget); }
+.md-image img { display: block; max-width: 100%; max-height: 65vh; object-fit: contain; }
+.widget-placeholder { padding: 18px; color: var(--muted); font: 12px var(--font-ui); }
+.md-mermaid { display: grid; place-items: center; width: min(100%, 820px); min-height: 88px; margin: 18px auto; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--widget); color: var(--muted); overflow: auto; font: 12px var(--font-ui); }
+.md-mermaid svg { max-width: 100%; height: auto; }
+.md-widget-error { place-items: start; border-color: color-mix(in srgb, var(--error) 45%, var(--line)); color: var(--error); white-space: pre-wrap; }
+.cm-panels { background: var(--chrome); color: var(--text); border-color: var(--line); font: 12px var(--font-mono); }
+.cm-vim-panel { padding: 4px 12px; }
+
+@media (max-width: 650px) {
+  .toolbar { grid-template-columns: 1fr auto; }
+  .toolbar nav { order: 3; display: none; }
+  .cm-editor .cm-scroller { padding-left: 18px !important; padding-right: 18px !important; }
+}
