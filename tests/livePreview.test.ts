@@ -250,6 +250,23 @@ describe("livePreview", () => {
     }
   });
 
+  it("preserves Vim's end-of-line column across logical j and k motions", () => {
+    const lines = "short\na much longer line\nend";
+    const state = EditorState.create({
+      doc: lines,
+      selection: EditorSelection.cursor(0),
+      extensions: [vim(), markdown(), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+
+    press("$");
+    press("j");
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(2);
+    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).to - 1);
+    press("k");
+    expect(view.state.selection.main.head).toBe(view.state.doc.line(1).to - 1);
+  });
+
   it("survives edits next to hidden marker ranges", () => {
     const state = EditorState.create({ doc: source, selection: EditorSelection.cursor(source.length), extensions: [markdown(), livePreview] });
     const updated = state.update({ changes: { from: source.length, insert: "\nMore" } }).state;
