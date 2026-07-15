@@ -51,8 +51,10 @@ describe("markdownConstructs", () => {
     expect(constructs[0]?.table?.rows[0]?.[0]?.parts).toEqual([{ kind: "code", text: "one" }]);
     expect(constructs[2]).toMatchObject({ language: "ts", text: "const x = 1;" });
 
-    const escaped = parse("| A | B |\n| --- | --- |\n| a\\|b | c |\n")[0]?.table?.rows[0]?.[0]?.parts;
-    expect(escaped?.map(({ text }) => text).join("")).toBe("a|b");
+    const escapedTable = parse("| A | B |\n| --- | --- |\n| a\\|b | c |\n| `a\\|b` | **a\\|b** |\n")[0]?.table;
+    expect(escapedTable?.rows[0]?.[0]?.parts.map(({ text }) => text).join("")).toBe("a|b");
+    expect(escapedTable?.rows[1]?.[0]?.parts).toEqual([{ kind: "code", text: "a|b" }]);
+    expect(escapedTable?.rows[1]?.[1]?.parts).toEqual([{ kind: "strong", text: "a|b" }]);
   });
 
   it("does not hide incomplete syntax", () => {

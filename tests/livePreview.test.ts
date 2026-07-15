@@ -89,7 +89,7 @@ describe("livePreview", () => {
 
     expect(view.dom.querySelector(".md-inline-code")?.textContent).toBe("inline");
     expect(view.dom.querySelector(".md-code-language")?.textContent).toBe("ts");
-    expect(view.dom.querySelector(".md-code-block")?.getAttribute("tabindex")).toBe("0");
+    expect(view.dom.querySelector(".md-code-block pre")?.getAttribute("tabindex")).toBe("0");
     expect(view.dom.querySelector(".md-code-block code")?.textContent).toBe("const x = 1;");
     expect(view.dom.querySelectorAll(".md-code-block .md-block-action")).toHaveLength(2);
     expect(view.state.doc.toString()).toBe(codeSource);

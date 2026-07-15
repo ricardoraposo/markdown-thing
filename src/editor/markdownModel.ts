@@ -48,6 +48,10 @@ function children(node: SyntaxNode): SyntaxNode[] {
   return result;
 }
 
+function unescapeTablePipes(value: string): string {
+  return value.replace(/\\\|/g, "|");
+}
+
 function tableInlineParts(source: string, cell: SyntaxNode): TableInlinePart[] {
   const result: TableInlinePart[] = [];
   const add = (kind: TableInlineKind, text: string, target?: string): void => {
@@ -61,14 +65,14 @@ function tableInlineParts(source: string, cell: SyntaxNode): TableInlinePart[] {
       add("text", source.slice(child.from + 1, child.to));
     } else if (child.name === "InlineCode") {
       const marks = parts.filter((part) => part.name === "CodeMark");
-      add("code", marks.length === 2 ? source.slice(marks[0]!.to, marks[1]!.from) : source.slice(child.from, child.to));
+      add("code", unescapeTablePipes(marks.length === 2 ? source.slice(marks[0]!.to, marks[1]!.from) : source.slice(child.from, child.to)));
     } else if (child.name === "StrongEmphasis" || child.name === "Emphasis") {
       const marks = parts.filter((part) => part.name === "EmphasisMark");
-      add(child.name === "StrongEmphasis" ? "strong" : "emphasis", marks.length === 2 ? source.slice(marks[0]!.to, marks[1]!.from) : source.slice(child.from, child.to));
+      add(child.name === "StrongEmphasis" ? "strong" : "emphasis", unescapeTablePipes(marks.length === 2 ? source.slice(marks[0]!.to, marks[1]!.from) : source.slice(child.from, child.to)));
     } else if (child.name === "Link") {
       const marks = parts.filter((part) => part.name === "LinkMark");
       const url = parts.find((part) => part.name === "URL");
-      add("link", marks.length >= 2 ? source.slice(marks[0]!.to, marks[1]!.from) : source.slice(child.from, child.to), url ? source.slice(url.from, url.to) : undefined);
+      add("link", unescapeTablePipes(marks.length >= 2 ? source.slice(marks[0]!.to, marks[1]!.from) : source.slice(child.from, child.to)), url ? source.slice(url.from, url.to) : undefined);
     } else {
       add("text", source.slice(child.from, child.to));
     }

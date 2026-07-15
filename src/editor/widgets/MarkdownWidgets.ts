@@ -102,9 +102,6 @@ export class CodeBlockWidget extends WidgetType {
   toDOM(view: EditorView): HTMLElement {
     const container = document.createElement("div");
     container.className = "md-code-block";
-    container.tabIndex = 0;
-    container.setAttribute("role", "region");
-    container.setAttribute("aria-label", this.language ? `${this.language} code block; scroll horizontally when needed` : "Code block; scroll horizontally when needed");
     const toolbar = document.createElement("div");
     toolbar.className = "md-code-toolbar";
     const label = document.createElement("span");
@@ -127,6 +124,9 @@ export class CodeBlockWidget extends WidgetType {
     actions.append(copy, editButton(view, this.editPos, "Edit code block source"));
     toolbar.append(label, actions);
     const pre = document.createElement("pre");
+    pre.tabIndex = 0;
+    pre.setAttribute("role", "region");
+    pre.setAttribute("aria-label", this.language ? `${this.language} code; scroll horizontally when needed` : "Code; scroll horizontally when needed");
     const code = document.createElement("code");
     code.textContent = this.source;
     pre.append(code);
