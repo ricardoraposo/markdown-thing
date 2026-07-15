@@ -121,8 +121,14 @@ describe("livePreview", () => {
     await vi.waitFor(() => expect(view?.dom.querySelector(".md-code-block")?.classList.contains("highlighted")).toBe(true), { timeout: 2000 });
     expect(view.dom.querySelector(".md-code-block code span")?.getAttribute("style")).toContain("color");
 
+    const preview = view.dom.querySelector<HTMLPreElement>(".md-code-block pre")!;
+    vi.spyOn(preview, "getBoundingClientRect").mockReturnValue({ height: 240 } as DOMRect);
+    preview.scrollTop = 12;
     view.dom.querySelector<HTMLButtonElement>("[data-md-code-edit]")?.click();
     const textarea = view.dom.querySelector<HTMLTextAreaElement>(".md-code-editor")!;
+    expect(textarea.style.height).toBe("240px");
+    expect(textarea.selectionStart).toBe(0);
+    expect(textarea.scrollTop).toBe(12);
     textarea.value = "const x = 2;\nconsole.log(x);";
     textarea.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
     const editedCode = "Use `inline`.\n\n```ts\nconst x = 2;\nconsole.log(x);\n```\n\nTail";

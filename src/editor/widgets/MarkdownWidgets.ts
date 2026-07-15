@@ -311,12 +311,17 @@ function startCodeEditing(container: HTMLElement): void {
   container.setAttribute("aria-busy", "false");
   codeEditButton(container)!.textContent = "Done";
 
+  const preview = container.querySelector("pre");
+  const previewHeight = preview?.getBoundingClientRect().height ?? 0;
+  const previewScrollTop = preview?.scrollTop ?? 0;
+  const previewScrollLeft = preview?.scrollLeft ?? 0;
   const textarea = document.createElement("textarea");
   textarea.className = "md-code-editor";
   textarea.value = controller.widget.source;
   textarea.spellcheck = false;
   textarea.setAttribute("aria-label", `${controller.widget.language || "Code"} block source`);
-  container.querySelector("pre")?.replaceWith(textarea);
+  if (previewHeight > 0) textarea.style.height = `${previewHeight}px`;
+  preview?.replaceWith(textarea);
   textarea.addEventListener("compositionstart", () => { controller.composing = true; });
   textarea.addEventListener("compositionend", () => { controller.composing = false; });
   textarea.addEventListener("input", (event) => {
@@ -343,7 +348,9 @@ function startCodeEditing(container: HTMLElement): void {
     });
   });
   textarea.focus();
-  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  textarea.setSelectionRange(0, 0);
+  textarea.scrollTop = previewScrollTop;
+  textarea.scrollLeft = previewScrollLeft;
 }
 
 export class CodeBlockWidget extends WidgetType {
