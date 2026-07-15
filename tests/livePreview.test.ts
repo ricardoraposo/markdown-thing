@@ -97,7 +97,7 @@ describe("livePreview", () => {
     expect(view.state.doc.toString()).toBe(codeSource);
   });
 
-  it("keeps hostile table and code content inert", () => {
+  it("keeps hostile table and code content inert after highlighting", async () => {
     const hostile = "| Value |\n| --- |\n| <img src=x onerror=alert(1)> |\n\n```html\n<script>alert(1)</script>\n```\n\nTail";
     const state = EditorState.create({
       doc: hostile,
@@ -106,9 +106,24 @@ describe("livePreview", () => {
     });
     view = new EditorView({ state, parent: document.body });
 
+    await vi.waitFor(() => expect(view?.dom.querySelector(".md-code-block")?.classList.contains("highlighted")).toBe(true), { timeout: 2000 });
     expect(view.dom.querySelector(".md-table-wrap img")).toBeNull();
     expect(view.dom.querySelector(".md-code-block script")).toBeNull();
     expect(view.dom.querySelector(".md-code-block code")?.textContent).toContain("<script>");
+  });
+
+  it("clears the busy state when a code language is unsupported", async () => {
+    const unknown = "```made-up-language\nplain text\n```\n\nTail";
+    const state = EditorState.create({
+      doc: unknown,
+      selection: EditorSelection.cursor(unknown.length),
+      extensions: [markdown(), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+
+    await vi.waitFor(() => expect(view?.dom.querySelector(".md-code-block")?.getAttribute("aria-busy")).toBe("false"), { timeout: 2000 });
+    expect(view.dom.querySelector(".md-code-block")?.classList.contains("highlighted")).toBe(false);
+    expect(view.dom.querySelector(".md-code-block code")?.textContent).toBe("plain text");
   });
 
   it("survives edits next to hidden marker ranges", () => {

@@ -135,7 +135,11 @@ export class CodeBlockWidget extends WidgetType {
     if (this.language) {
       container.setAttribute("aria-busy", "true");
       void import("../shikiHighlighter").then(({ highlightCode }) => highlightCode(this.source, this.language, this.theme)).then((highlighted) => {
-        if (!highlighted || !container.isConnected) return;
+        if (!container.isConnected) return;
+        if (!highlighted) {
+          container.setAttribute("aria-busy", "false");
+          return;
+        }
         const fragment = document.createDocumentFragment();
         highlighted.lines.forEach((line, lineIndex) => {
           for (const token of line) {
