@@ -1,6 +1,7 @@
 use std::{
     collections::{HashSet, VecDeque},
     env,
+    fs::OpenOptions,
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -90,18 +91,34 @@ pub fn startup_file_from_env() -> StartupFile {
     StartupFile { path }
 }
 
+fn create_ready_marker(path: &Path) -> std::io::Result<()> {
+    let valid_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with("markdown-thing-ready-"));
+    if path.parent() != Some(env::temp_dir().as_path()) || !valid_name {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "invalid readiness path",
+        ));
+    }
+    OpenOptions::new().write(true).create_new(true).open(path)?;
+    Ok(())
+}
+
 pub fn signal_ready_from_env() {
     if let Some(path) = env::var_os(READY_ENV) {
-        let _ = std::fs::write(path, []);
+        let _ = create_ready_marker(Path::new(&path));
     }
 }
 
 pub fn signal_ready_from_arguments(arguments: &[String]) {
     if let Some(path) = arguments
         .iter()
+        .rev()
         .find_map(|argument| argument.strip_prefix(READY_ARGUMENT_PREFIX))
     {
-        let _ = std::fs::write(path, []);
+        let _ = create_ready_marker(Path::new(path));
     }
 }
 
@@ -378,6 +395,40 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[test]
+    fn readiness_marker_never_truncates_an_existing_file() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = env::temp_dir().join(format!("markdown-thing-ready-existing-{unique}"));
+        fs::write(&path, "keep me").unwrap();
+
+        assert!(create_ready_marker(&path).is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "keep me");
+        let _ = fs::remove_file(path);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn readiness_marker_rejects_a_symlink() {
+        use std::os::unix::fs::symlink;
+
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let target = env::temp_dir().join(format!("markdown-thing-target-{unique}"));
+        let marker = env::temp_dir().join(format!("markdown-thing-ready-link-{unique}"));
+        fs::write(&target, "keep me").unwrap();
+        symlink(&target, &marker).unwrap();
+
+        assert!(create_ready_marker(&marker).is_err());
+        assert_eq!(fs::read_to_string(&target).unwrap(), "keep me");
+        let _ = fs::remove_file(marker);
+        let _ = fs::remove_file(target);
     }
 
     #[test]

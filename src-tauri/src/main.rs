@@ -1,3 +1,13 @@
+#[cfg(any(test, all(unix, not(debug_assertions))))]
+const READY_ARGUMENT_PREFIX: &str = "--markdown-thing-ready=";
+
+#[cfg(any(test, all(unix, not(debug_assertions))))]
+fn is_reserved_argument(argument: &std::ffi::OsStr) -> bool {
+    argument
+        .to_string_lossy()
+        .starts_with(READY_ARGUMENT_PREFIX)
+}
+
 #[cfg(all(unix, not(debug_assertions)))]
 fn launch_detached() -> std::io::Result<()> {
     use std::os::unix::process::CommandExt;
@@ -18,7 +28,11 @@ fn launch_detached() -> std::io::Result<()> {
 
     let mut command = Command::new(executable);
     command
-        .args(std::env::args_os().skip(1))
+        .args(
+            std::env::args_os()
+                .skip(1)
+                .filter(|argument| !is_reserved_argument(argument)),
+        )
         .arg(ready_argument)
         .env("MARKDOWN_THING_GUI", "1")
         .env("MARKDOWN_THING_READY_FILE", &ready_file)
@@ -49,4 +63,18 @@ fn main() {
     }
 
     markdown_thing_lib::run();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsStr;
+
+    #[test]
+    fn recognizes_reserved_readiness_arguments() {
+        assert!(is_reserved_argument(OsStr::new(
+            "--markdown-thing-ready=/tmp/victim"
+        )));
+        assert!(!is_reserved_argument(OsStr::new("notes.md")));
+    }
 }
