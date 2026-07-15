@@ -2,6 +2,7 @@ import { redo, undo } from "@codemirror/commands";
 import { WidgetType, type EditorView } from "@codemirror/view";
 import { toggleTask } from "../taskToggle";
 import type { TableCellPreview, TableInlinePart, TablePreview } from "../markdownModel";
+import { createEmbeddedCodeEditor, type EmbeddedCodeEditorHandle } from "./EmbeddedCodeEditor";
 
 export class BulletWidget extends WidgetType {
   toDOM(): HTMLElement {
@@ -247,7 +248,7 @@ interface CodeController {
   widget: CodeBlockWidget;
   view: EditorView;
   editing: boolean;
-  composing: boolean;
+  embedded?: EmbeddedCodeEditorHandle;
   generation: number;
 }
 
@@ -269,7 +270,7 @@ function renderHighlightedCode(container: HTMLElement): void {
   const code = document.createElement("code");
   code.textContent = widget.source;
   pre.append(code);
-  container.querySelector("pre, textarea")?.replaceWith(pre);
+  container.querySelector("pre, .md-code-editor")?.replaceWith(pre);
 
   if (!widget.language) return;
   container.setAttribute("aria-busy", "true");
@@ -309,6 +310,8 @@ function finishCodeEditing(container: HTMLElement, focusEditor = false): void {
   if (!controller?.editing) return;
   restoreVimResumePosition(container, controller.view, controller.widget.editPos, controller.widget.editTo);
   controller.editing = false;
+  controller.embedded?.destroy();
+  controller.embedded = undefined;
   controller.generation++;
   container.classList.remove("editing", "highlighted");
   codeEditButton(container)!.textContent = "Edit";
@@ -330,42 +333,31 @@ function startCodeEditing(container: HTMLElement): void {
   const previewHeight = preview?.getBoundingClientRect().height ?? 0;
   const previewScrollTop = preview?.scrollTop ?? 0;
   const previewScrollLeft = preview?.scrollLeft ?? 0;
-  const textarea = document.createElement("textarea");
-  textarea.className = "md-code-editor";
-  textarea.value = controller.widget.source;
-  textarea.spellcheck = false;
-  textarea.setAttribute("aria-label", `${controller.widget.language || "Code"} block source`);
-  if (previewHeight > 0) textarea.style.height = `${previewHeight}px`;
-  preview?.replaceWith(textarea);
-  textarea.addEventListener("compositionstart", () => { controller.composing = true; });
-  textarea.addEventListener("compositionend", () => { controller.composing = false; });
-  textarea.addEventListener("input", (event) => {
-    const current = codeControllers.get(container);
-    if (!current) return;
-    const widget = current.widget;
-    replaceWithMinimalChange(current.view, widget.editPos, widget.source, textarea.value, widget.editSuffix, inputUserEvent(event));
+  const mount = document.createElement("div");
+  mount.className = "md-code-editor";
+  if (previewHeight > 0) mount.style.height = `${previewHeight}px`;
+  preview?.replaceWith(mount);
+  controller.embedded = createEmbeddedCodeEditor({
+    mount,
+    parentView: controller.view,
+    source: controller.widget.source,
+    language: controller.widget.language,
+    onChange(source, userEvent) {
+      const current = codeControllers.get(container);
+      if (!current) return;
+      const widget = current.widget;
+      replaceWithMinimalChange(current.view, widget.editPos, widget.source, source, widget.editSuffix, userEvent);
+    },
+    onExit: () => finishCodeEditing(container, true),
   });
-  textarea.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" || ((event.ctrlKey || event.metaKey) && event.key === "Enter")) {
-      event.preventDefault();
-      finishCodeEditing(container, true);
-    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
-      event.preventDefault();
-      (event.shiftKey ? redo : undo)(controller.view);
-    } else if (event.ctrlKey && event.key.toLowerCase() === "r") {
-      event.preventDefault();
-      redo(controller.view);
-    }
-  });
-  textarea.addEventListener("blur", () => {
+  mount.addEventListener("focusout", () => {
     queueMicrotask(() => {
       if (!container.contains(document.activeElement)) finishCodeEditing(container);
     });
   });
-  textarea.focus();
-  textarea.setSelectionRange(0, 0);
-  textarea.scrollTop = previewScrollTop;
-  textarea.scrollLeft = previewScrollLeft;
+  controller.embedded.view.scrollDOM.scrollTop = previewScrollTop;
+  controller.embedded.view.scrollDOM.scrollLeft = previewScrollLeft;
+  controller.embedded.focus();
 }
 
 export class CodeBlockWidget extends WidgetType {
@@ -388,7 +380,7 @@ export class CodeBlockWidget extends WidgetType {
     const container = document.createElement("div");
     container.className = "md-code-block";
     container.dataset.mdEditPos = String(this.editPos);
-    codeControllers.set(container, { widget: this, view, editing: false, composing: false, generation: 0 });
+    codeControllers.set(container, { widget: this, view, editing: false, generation: 0 });
     const toolbar = document.createElement("div");
     toolbar.className = "md-code-toolbar";
     const label = document.createElement("span");
@@ -434,15 +426,15 @@ export class CodeBlockWidget extends WidgetType {
     controller.widget = this;
     controller.view = view;
     dom.dataset.mdEditPos = String(this.editPos);
-    const textarea = dom.querySelector<HTMLTextAreaElement>(".md-code-editor");
-    if (!textarea) return false;
-    if (!controller.composing && textarea.value !== this.source) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      textarea.value = this.source;
-      textarea.setSelectionRange(Math.min(start, this.source.length), Math.min(end, this.source.length));
-    }
+    if (!controller.embedded) return false;
+    controller.embedded.sync(this.source, this.language);
     return true;
+  }
+
+  destroy(dom: HTMLElement): void {
+    const controller = codeControllers.get(dom);
+    controller?.embedded?.destroy();
+    codeControllers.delete(dom);
   }
 }
 

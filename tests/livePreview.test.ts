@@ -27,6 +27,19 @@ function press(key: string): void {
   view?.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 }
 
+function embeddedCodeView(): EditorView {
+  const editorDOM = view?.dom.querySelector<HTMLElement>(".md-code-editor > .cm-editor");
+  const embedded = editorDOM ? EditorView.findFromDOM(editorDOM) : null;
+  if (!embedded) throw new Error("Embedded code editor not found");
+  return embedded;
+}
+
+function replaceEmbeddedCode(source: string): EditorView {
+  const embedded = embeddedCodeView();
+  embedded.dispatch({ changes: { from: 0, to: embedded.state.doc.length, insert: source }, userEvent: "input.type" });
+  return embedded;
+}
+
 const source = `# Heading
 
 **bold** and *emphasis* with [a link](https://example.com).
@@ -128,25 +141,46 @@ describe("livePreview", () => {
     vi.spyOn(preview, "getBoundingClientRect").mockReturnValue({ height: 240 } as DOMRect);
     preview.scrollTop = 12;
     view.dom.querySelector<HTMLButtonElement>("[data-md-code-edit]")?.click();
-    const textarea = view.dom.querySelector<HTMLTextAreaElement>(".md-code-editor")!;
-    expect(textarea.style.height).toBe("240px");
-    expect(textarea.selectionStart).toBe(0);
-    expect(textarea.scrollTop).toBe(12);
-    textarea.value = "const x = 2;\nconsole.log(x);";
-    textarea.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+    const mount = view.dom.querySelector<HTMLElement>(".md-code-editor")!;
+    const embedded = embeddedCodeView();
+    expect(mount.style.height).toBe("240px");
+    expect(embedded.state.selection.main.head).toBe(0);
+    expect(embedded.scrollDOM.scrollTop).toBe(12);
+    replaceEmbeddedCode("const x = 2;\nconsole.log(x);");
     const editedCode = "Use `inline`.\n\n```ts\nconst x = 2;\nconsole.log(x);\n```\n\nTail";
     expect(view.state.doc.toString()).toBe(editedCode);
-    expect(view.dom.querySelector(".md-code-editor")).toBe(textarea);
+    expect(view.dom.querySelector(".md-code-editor")).toBe(mount);
     undo(view);
     expect(view.state.doc.toString()).toBe(codeSource);
-    expect(view.dom.querySelector(".md-code-editor")).toBe(textarea);
-    expect(textarea.value).toBe("const x = 1;");
+    expect(view.dom.querySelector(".md-code-editor")).toBe(mount);
+    expect(embedded.state.doc.toString()).toBe("const x = 1;");
     redo(view);
     expect(view.state.doc.toString()).toBe(editedCode);
-    expect(view.dom.querySelector(".md-code-editor")).toBe(textarea);
+    expect(view.dom.querySelector(".md-code-editor")).toBe(mount);
     view.dom.querySelector<HTMLButtonElement>("[data-md-code-edit]")?.click();
     await vi.waitFor(() => expect(view?.dom.querySelector(".md-code-block")?.classList.contains("highlighted")).toBe(true), { timeout: 2000 });
     expect(view.dom.querySelector(".md-code-block code")?.textContent).toBe("const x = 2;\nconsole.log(x);");
+  });
+
+  it("routes embedded Vim undo and redo through parent history", () => {
+    const codeSource = "```js\none();\n```\n\nAfter";
+    const state = EditorState.create({
+      doc: codeSource,
+      selection: EditorSelection.cursor(codeSource.length),
+      extensions: [history(), markdown(), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+    view.dom.querySelector<HTMLButtonElement>("[data-md-code-edit]")?.click();
+    const embedded = replaceEmbeddedCode("two();");
+    expect(view.state.doc.toString()).toContain("two();");
+
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "u", bubbles: true, cancelable: true }));
+    expect(view.state.doc.toString()).toBe(codeSource);
+    expect(embedded.state.doc.toString()).toBe("one();");
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "r", ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(view.state.doc.toString()).toContain("two();");
+    expect(embedded.state.doc.toString()).toBe("two();");
+
   });
 
   it("keeps in-place code offsets current after edits before the block", () => {
@@ -158,11 +192,10 @@ describe("livePreview", () => {
     });
     view = new EditorView({ state, parent: document.body });
     view.dom.querySelector<HTMLButtonElement>("[data-md-code-edit]")?.click();
-    const textarea = view.dom.querySelector<HTMLTextAreaElement>(".md-code-editor")!;
+    const mount = view.dom.querySelector<HTMLElement>(".md-code-editor")!;
     view.dispatch({ changes: { from: 0, insert: "Added\n" } });
-    expect(view.dom.querySelector(".md-code-editor")).toBe(textarea);
-    textarea.value = "two();";
-    textarea.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+    expect(view.dom.querySelector(".md-code-editor")).toBe(mount);
+    replaceEmbeddedCode("two();");
 
     expect(view.state.doc.toString()).toBe("Added\nBefore\n\n```js\ntwo();\n```\n\nAfter");
   });
@@ -176,12 +209,11 @@ describe("livePreview", () => {
     });
     view = new EditorView({ state, parent: document.body });
     view.dom.querySelector<HTMLButtonElement>("[data-md-code-edit]")?.click();
-    const textarea = view.dom.querySelector<HTMLTextAreaElement>(".md-code-editor")!;
-    textarea.value = "puts :ok";
-    textarea.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+    const mount = view.dom.querySelector<HTMLElement>(".md-code-editor")!;
+    replaceEmbeddedCode("puts :ok");
 
     expect(view.state.doc.toString()).toBe("Before\n\n```ruby\nputs :ok\n```\n\nAfter");
-    expect(view.dom.querySelector(".md-code-editor")).toBe(textarea);
+    expect(view.dom.querySelector(".md-code-editor")).toBe(mount);
   });
 
   it("preserves the structural newline in a blank fenced block", () => {
@@ -193,13 +225,12 @@ describe("livePreview", () => {
     });
     view = new EditorView({ state, parent: document.body });
     view.dom.querySelector<HTMLButtonElement>("[data-md-code-edit]")?.click();
-    const textarea = view.dom.querySelector<HTMLTextAreaElement>(".md-code-editor")!;
-    expect(textarea.value).toBe("");
-    textarea.value = "run();";
-    textarea.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+    const mount = view.dom.querySelector<HTMLElement>(".md-code-editor")!;
+    expect(embeddedCodeView().state.doc.toString()).toBe("");
+    replaceEmbeddedCode("run();");
 
     expect(view.state.doc.toString()).toBe("```js\nrun();\n```\n\nAfter");
-    expect(view.dom.querySelector(".md-code-editor")).toBe(textarea);
+    expect(view.dom.querySelector(".md-code-editor")).toBe(mount);
   });
 
   it("keeps hostile table and code content inert after highlighting", async () => {
@@ -262,10 +293,9 @@ describe("livePreview", () => {
     press("j");
     press("j");
     await Promise.resolve();
-    const textarea = view.dom.querySelector<HTMLTextAreaElement>(".md-code-editor");
-    expect(textarea).not.toBeNull();
-    expect(document.activeElement).toBe(textarea);
-    textarea!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    const embedded = embeddedCodeView();
+    expect(document.activeElement).toBe(embedded.contentDOM);
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
 
     press("j");
     press("j");
@@ -283,6 +313,30 @@ describe("livePreview", () => {
     expect(view.dom.querySelector(".md-table-cell-input")).not.toBeNull();
   });
 
+  it("keeps Vim normal and insert modes inside the embedded code editor", async () => {
+    const codeSource = "Before\n\n```text\none\ntwo\n```\n\nAfter";
+    const state = EditorState.create({
+      doc: codeSource,
+      selection: EditorSelection.cursor(0),
+      extensions: [vim(), markdown(), livePreview],
+    });
+    view = new EditorView({ state, parent: document.body });
+    press("j");
+    press("j");
+    await Promise.resolve();
+    const embedded = embeddedCodeView();
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+    expect(embedded.state.doc.lineAt(embedded.state.selection.main.head).number).toBe(2);
+    expect(embedded.state.doc.toString()).toBe("one\ntwo");
+    expect(view.state.doc.toString()).toBe(codeSource);
+
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "i", bubbles: true, cancelable: true }));
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(view.dom.querySelector(".md-code-editor")).not.toBeNull();
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(view.dom.querySelector(".md-code-editor")).toBeNull();
+  });
+
   it("maps the Vim resume position through in-place code edits", async () => {
     const codeSource = "Before\n\n```text\none\n```\n\nAfter";
     const state = EditorState.create({
@@ -294,10 +348,8 @@ describe("livePreview", () => {
     press("j");
     press("j");
     await Promise.resolve();
-    const textarea = view.dom.querySelector<HTMLTextAreaElement>(".md-code-editor")!;
-    textarea.value = "one\ntwo";
-    textarea.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
-    textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    const embedded = replaceEmbeddedCode("one\ntwo");
+    embedded.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
 
     expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(7);
     press("j");
@@ -337,7 +389,7 @@ describe("livePreview", () => {
     press("j");
     press("j");
     await Promise.resolve();
-    view.dom.querySelector<HTMLTextAreaElement>(".md-code-editor")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    embeddedCodeView().contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     press("j");
     await Promise.resolve();
     expect(view.dom.querySelector(".md-code-editor")).toBeNull();
