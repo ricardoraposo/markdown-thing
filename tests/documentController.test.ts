@@ -56,6 +56,37 @@ describe("DocumentController", () => {
     expect(subject.controller.state.path).toBe("/notes/one.md");
   });
 
+  it("opens temporary agent output without treating it as a saveable file", async () => {
+    const subject = setup(adapter());
+    subject.controller.openEphemeral({
+      id: "response-1",
+      title: "Architecture analysis",
+      content: "# Architecture\n\n- Finding",
+    });
+
+    expect(subject.text()).toBe("# Architecture\n\n- Finding");
+    expect(subject.controller.state).toMatchObject({
+      path: null,
+      name: "Architecture analysis",
+      ephemeral: true,
+      dirty: false,
+    });
+    expect(subject.controller.state.tabs).toHaveLength(1);
+
+    subject.setText("edited response");
+    await subject.controller.save();
+    expect(subject.errors).toEqual(["Agent output is temporary and cannot be saved"]);
+    expect(subject.controller.state.dirty).toBe(true);
+  });
+
+  it("keeps separate ephemeral responses with the same title", () => {
+    const subject = setup(adapter());
+    subject.controller.openEphemeral({ id: "one", title: "Review", content: "one" });
+    subject.controller.openEphemeral({ id: "two", title: "Review", content: "two" });
+    expect(subject.controller.state.tabs).toHaveLength(2);
+    expect(subject.text()).toBe("two");
+  });
+
   it("switches tabs relatively and by number", async () => {
     const subject = setup(adapter({ initial: async () => ({ path: "/notes/one.md", content: "one" }) }));
     await subject.controller.openInitial();

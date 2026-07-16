@@ -1,9 +1,10 @@
-import type { FileAdapter, OpenedDocument } from "./tauriFiles";
+import type { EphemeralDocument, FileAdapter, OpenedDocument } from "./tauriFiles";
 
 export interface DocumentTabState {
   id: number;
   path: string | null;
   name: string;
+  ephemeral: boolean;
   dirty: boolean;
   active: boolean;
 }
@@ -11,6 +12,7 @@ export interface DocumentTabState {
 export interface DocumentState {
   path: string | null;
   name: string;
+  ephemeral: boolean;
   dirty: boolean;
   tabs: DocumentTabState[];
 }
@@ -25,8 +27,10 @@ export interface DocumentControllerOptions {
 
 interface DocumentTab {
   id: number;
+  key: string | null;
   path: string | null;
   name: string;
+  ephemeral: boolean;
   text: string;
   savedText: string;
 }
@@ -43,7 +47,15 @@ export class DocumentController {
 
   constructor(private readonly options: DocumentControllerOptions) {
     const text = options.getText();
-    this.tabs = [{ id: 1, path: null, name: "Untitled.md", text, savedText: text }];
+    this.tabs = [{
+      id: 1,
+      key: null,
+      path: null,
+      name: "Untitled.md",
+      ephemeral: false,
+      text,
+      savedText: text,
+    }];
     this.emit();
   }
 
@@ -76,7 +88,7 @@ export class DocumentController {
   openDocument(opened: OpenedDocument): void {
     if (this.disposed) return;
     this.captureActiveText();
-    const existing = this.tabs.find((tab) => tab.path === opened.path);
+    const existing = this.tabs.find((tab) => tab.key === `file:${opened.path}`);
     if (existing) {
       this.activeId = existing.id;
       this.options.setText(existing.text);
@@ -87,8 +99,39 @@ export class DocumentController {
     const placeholder = this.tabs.length === 1 && this.tabs[0]?.path === null && this.tabs[0].text === this.tabs[0].savedText;
     const tab: DocumentTab = {
       id: placeholder ? this.tabs[0]!.id : this.nextId++,
+      key: `file:${opened.path}`,
       path: opened.path,
       name: nameFromPath(opened.path),
+      ephemeral: false,
+      text: opened.content,
+      savedText: opened.content,
+    };
+    if (placeholder) this.tabs[0] = tab;
+    else this.tabs.push(tab);
+    this.activeId = tab.id;
+    this.options.setText(tab.text);
+    this.emit();
+  }
+
+  openEphemeral(opened: EphemeralDocument): void {
+    if (this.disposed) return;
+    this.captureActiveText();
+    const key = `ephemeral:${opened.id}`;
+    const existing = this.tabs.find((tab) => tab.key === key);
+    if (existing) {
+      this.activeId = existing.id;
+      this.options.setText(existing.text);
+      this.emit();
+      return;
+    }
+
+    const placeholder = this.tabs.length === 1 && this.tabs[0]?.key === null && this.tabs[0].text === this.tabs[0].savedText;
+    const tab: DocumentTab = {
+      id: placeholder ? this.tabs[0]!.id : this.nextId++,
+      key,
+      path: null,
+      name: opened.title,
+      ephemeral: true,
       text: opened.content,
       savedText: opened.content,
     };
@@ -127,7 +170,9 @@ export class DocumentController {
     this.captureActiveText();
     const tab = this.activeTab();
     if (!tab.path) {
-      this.fail("Open a file from the terminal before saving");
+      this.fail(tab.ephemeral
+        ? "Agent output is temporary and cannot be saved"
+        : "Open a file from the terminal before saving");
       return;
     }
     const tabId = tab.id;
@@ -158,11 +203,13 @@ export class DocumentController {
     return {
       path: active.path,
       name: active.name,
+      ephemeral: active.ephemeral,
       dirty: active.text !== active.savedText,
       tabs: this.tabs.map((tab) => ({
         id: tab.id,
         path: tab.path,
         name: tab.name,
+        ephemeral: tab.ephemeral,
         dirty: tab.text !== tab.savedText,
         active: tab.id === this.activeId,
       })),

@@ -9,8 +9,15 @@ export interface SavedDocument {
   path: string;
 }
 
+export interface EphemeralDocument {
+  id: string;
+  title: string;
+  content: string;
+}
+
 export type LaunchItem =
   | { type: "document"; payload: OpenedDocument }
+  | { type: "ephemeral"; payload: EphemeralDocument }
   | { type: "error"; payload: string };
 
 export interface FileAdapter {

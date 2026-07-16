@@ -1,4 +1,5 @@
 mod files;
+pub mod handoff;
 
 use std::path::Path;
 use tauri::{Emitter, Manager};
@@ -29,7 +30,10 @@ pub fn run() {
         .manage(files::FileAuthorization::default())
         .manage(files::LaunchQueue::default())
         .manage(files::startup_file_from_env())
-        .setup(|_| {
+        .setup(|app| {
+            let socket =
+                handoff::start_listener(app.handle().clone()).map_err(std::io::Error::other)?;
+            app.manage(socket);
             files::signal_ready_from_env();
             Ok(())
         })

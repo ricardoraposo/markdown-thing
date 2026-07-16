@@ -198,6 +198,34 @@ describe("Solid application shell", () => {
     await vi.waitFor(() => expect(document.title).toBe("one.md — Markdown Thing"));
   });
 
+  it("opens queued agent Markdown as a temporary tab", async () => {
+    let queued: LaunchItem[] = [{
+      type: "ephemeral",
+      payload: {
+        id: "agent-1",
+        title: "Architecture analysis",
+        content: "# Architecture\n\n- Finding",
+      },
+    }];
+    const files = adapter({
+      drainLaunchQueue: vi.fn(async () => {
+        const result = queued;
+        queued = [];
+        return result;
+      }),
+    });
+    const subject = setup({ files });
+    mounted.push(subject.dispose);
+
+    await vi.waitFor(() => expect(subject.root.querySelector("#document-label")?.textContent).toBe("Architecture analysis"));
+    expect(subject.fake.editor.replace).toHaveBeenLastCalledWith("# Architecture\n\n- Finding");
+    expect(document.title).toBe("Architecture analysis — Markdown Thing");
+    subject.fake.options().actions.save();
+    await vi.waitFor(() => expect(subject.root.querySelector("#message")?.textContent)
+      .toBe("Agent output is temporary and cannot be saved"));
+    expect(files.save).not.toHaveBeenCalled();
+  });
+
   it("preserves settings shortcuts and preference controls", () => {
     const subject = setup();
     mounted.push(subject.dispose);

@@ -48,6 +48,15 @@ markdown-thing TODO.md
 markdown-thing /home/rick/Documents/notes.md
 ```
 
+Pipe generated Markdown directly into a temporary, in-memory tab with `show`. The Markdown travels over a private user-only Unix socket and is not written to a report or temporary payload file:
+
+```bash
+printf '# Architecture analysis\n\n- First finding\n- Second finding\n' | \
+  markdown-thing show --title "Architecture analysis"
+```
+
+`--title` is optional and defaults to `Agent response`. Input must be UTF-8 and is limited to 10 MiB. Temporary agent tabs can be edited during the session but cannot be saved; use an ordinary Markdown file when the output should become a persistent artifact.
+
 The editor starts in Vim Normal mode.
 
 | Action | Shortcut |

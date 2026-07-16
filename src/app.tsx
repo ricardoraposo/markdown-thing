@@ -52,6 +52,7 @@ const productionDependencies: AppDependencies = {
 const INITIAL_DOCUMENT_STATE: DocumentState = {
   path: null,
   name: "Untitled.md",
+  ephemeral: false,
   dirty: false,
   tabs: [],
 };
@@ -117,6 +118,7 @@ function App(props: { dependencies: AppDependencies }) {
         if (disposed) return;
         for (const item of items) {
           if (item.type === "document") controller?.openDocument(item.payload);
+          else if (item.type === "ephemeral") controller?.openEphemeral(item.payload);
           else showMessage(item.payload, true);
         }
       } catch (error) {
@@ -249,8 +251,8 @@ function App(props: { dependencies: AppDependencies }) {
                 type="button"
                 data-tab-id={tab().id}
                 class={`tab${tab().active ? " active" : ""}`}
-                title={tab().path ?? tab().name}
-                aria-label={`${tab().name}${tab().dirty ? ", unsaved changes" : ""}`}
+                title={tab().ephemeral ? `${tab().name} (temporary agent output)` : (tab().path ?? tab().name)}
+                aria-label={`${tab().name}${tab().ephemeral ? ", temporary agent output" : ""}${tab().dirty ? ", unsaved changes" : ""}`}
                 aria-current={tab().active ? "page" : undefined}
                 onClick={() => selectTab(tab().id)}
               >

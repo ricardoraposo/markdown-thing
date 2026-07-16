@@ -9,6 +9,8 @@ use std::{
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 
+use crate::handoff::EphemeralDocument;
+
 const MAX_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
 const READY_ARGUMENT_PREFIX: &str = "--markdown-thing-ready=";
 const READY_ENV: &str = "MARKDOWN_THING_READY_FILE";
@@ -50,6 +52,7 @@ pub struct StartupFile {
 #[serde(tag = "type", content = "payload", rename_all = "camelCase")]
 pub enum LaunchItem {
     Document(OpenedDocument),
+    Ephemeral(EphemeralDocument),
     Error(String),
 }
 
