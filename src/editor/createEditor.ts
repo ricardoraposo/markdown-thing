@@ -47,6 +47,11 @@ export interface MarkdownEditor {
   destroy(): void;
 }
 
+const fontSizeTheme = (fontSize: number) => EditorView.theme({
+  "&": { "--editor-font-size": `${fontSize}px` },
+  ".cm-scroller": { fontSize: `${fontSize}px` },
+});
+
 export function createEditor(options: EditorOptions): MarkdownEditor {
   configureLogicalLineMotions();
   configureClipboardYanks();
@@ -76,7 +81,7 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
       vim(),
       leaderCompartment.of(taskLeaderBinding(options.leader)),
       lineNumbersCompartment.of(options.lineNumbers ? lineNumbers() : []),
-      fontSizeCompartment.of(EditorView.theme({ ".cm-scroller": { fontSize: `${options.fontSize}px` } })),
+      fontSizeCompartment.of(fontSizeTheme(options.fontSize)),
       highlightSpecialChars(),
       history(),
       drawSelection(),
@@ -131,7 +136,7 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
       view.dispatch({ effects: lineNumbersCompartment.reconfigure(enabled ? lineNumbers() : []) });
     },
     setFontSize(fontSize) {
-      view.dispatch({ effects: fontSizeCompartment.reconfigure(EditorView.theme({ ".cm-scroller": { fontSize: `${fontSize}px` } })) });
+      view.dispatch({ effects: fontSizeCompartment.reconfigure(fontSizeTheme(fontSize)) });
     },
     focus: () => view.focus(),
     destroy: () => view.destroy(),

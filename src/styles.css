@@ -116,11 +116,11 @@ kbd { padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px;
 .md-code-block { position: relative; width: 100%; margin: 18px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--widget); overflow: hidden; }
 .md-code-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; padding: 5px 8px 5px 12px; border-bottom: 1px solid var(--line); }
 .md-code-block pre { margin: 0; padding: 17px 18px; overflow: auto; }
-.md-code-block code { color: var(--text); font-family: var(--font-mono); font-size: calc(1em + 2px); line-height: 1.6; white-space: pre; }
+.md-code-block code { color: var(--text); font-family: var(--font-mono); font-size: calc(var(--editor-font-size) - 1px); line-height: 1.6; white-space: pre; }
 .md-code-editor { display: block; width: 100%; min-height: 0; margin: 0; overflow: hidden; background: var(--editor-bg); color: var(--text); }
 .md-code-editor > .cm-editor { width: 100%; height: 100%; background: var(--editor-bg); color: var(--text); }
 .md-code-editor > .cm-editor.cm-focused { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
-#editor .md-code-editor > .cm-editor .cm-scroller { height: 100%; padding: 0 !important; overflow: auto; font-family: var(--font-mono); font-size: calc(1em + 2px); line-height: 1.6; }
+#editor .md-code-editor > .cm-editor .cm-scroller { height: 100%; padding: 0 !important; overflow: auto; font-family: var(--font-mono); font-size: calc(var(--editor-font-size) - 1px); line-height: 1.6; }
 #editor .md-code-editor > .cm-editor .cm-content { width: max-content; min-width: 100%; max-width: none; margin: 0; padding: 17px 18px; flex: none; caret-color: var(--accent); white-space: pre; }
 .md-code-editor > .cm-editor .cm-gutters { display: none; }
 .md-code-editor > .cm-editor .cm-cursor { border-left-color: var(--accent); }
