@@ -22,6 +22,7 @@ function createFakeEditor(): FakeEditor {
     setContext: vi.fn(),
     setLeader: vi.fn(),
     setLineNumbers: vi.fn(),
+    setFontSize: vi.fn(),
     focus: vi.fn(),
     destroy: vi.fn(),
   } satisfies MarkdownEditor;
@@ -130,6 +131,7 @@ describe("Solid application shell", () => {
   it("renders the existing shell and creates one editor with stored preferences", async () => {
     localStorage.setItem("markdown-thing-vim-leader", " ");
     localStorage.setItem("markdown-thing-line-numbers", "true");
+    localStorage.setItem("markdown-thing-font-size", "18");
     const subject = setup();
     mounted.push(subject.dispose);
 
@@ -147,6 +149,7 @@ describe("Solid application shell", () => {
     expect(editorOptions.theme).toBe("light");
     expect(editorOptions.leader).toBe(" ");
     expect(editorOptions.lineNumbers).toBe(true);
+    expect(editorOptions.fontSize).toBe(18);
     expect(subject.fake.editor.focus).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => expect(subject.unlisten).not.toHaveBeenCalled());
   });
@@ -226,6 +229,16 @@ describe("Solid application shell", () => {
     lineNumbers.dispatchEvent(new Event("change", { bubbles: true }));
     expect(localStorage.getItem("markdown-thing-line-numbers")).toBe("true");
     expect(subject.fake.editor.setLineNumbers).toHaveBeenCalledWith(true);
+
+    const fontSize = subject.root.querySelector<HTMLSelectElement>("#font-size")!;
+    fontSize.value = "20";
+    fontSize.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(localStorage.getItem("markdown-thing-font-size")).toBe("20");
+    expect(subject.fake.editor.setFontSize).toHaveBeenCalledWith(20);
+    subject.fake.options().actions.increaseFontSize();
+    expect(subject.fake.editor.setFontSize).toHaveBeenLastCalledWith(21);
+    subject.fake.options().actions.decreaseFontSize();
+    expect(subject.fake.editor.setFontSize).toHaveBeenLastCalledWith(20);
 
     const leader = subject.root.querySelector<HTMLButtonElement>("#leader-key")!;
     leader.click();

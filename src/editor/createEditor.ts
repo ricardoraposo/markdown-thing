@@ -16,6 +16,8 @@ import { configureLogicalLineMotions } from "./vimLogicalLines";
 export interface EditorActions {
   save(): void;
   settings(): void;
+  increaseFontSize(): void;
+  decreaseFontSize(): void;
   nextTab(): void;
   previousTab(): void;
   selectTab(index: number): void;
@@ -27,6 +29,7 @@ export interface EditorOptions {
   theme: ResolvedTheme;
   leader: string;
   lineNumbers: boolean;
+  fontSize: number;
   actions: EditorActions;
   onChange(text: string): void;
   onCursor(line: number, column: number): void;
@@ -39,6 +42,7 @@ export interface MarkdownEditor {
   setContext(path: string | null, theme: ResolvedTheme): void;
   setLeader(leader: string): void;
   setLineNumbers(enabled: boolean): void;
+  setFontSize(fontSize: number): void;
   focus(): void;
   destroy(): void;
 }
@@ -50,10 +54,13 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
   const lineSeparatorCompartment = new Compartment();
   const leaderCompartment = new Compartment();
   const lineNumbersCompartment = new Compartment();
+  const fontSizeCompartment = new Compartment();
   const initialDocument = prepareDocument(options.initialDocument);
   const shortcuts = Prec.highest(keymap.of([
     { key: "Ctrl-s", preventDefault: true, run: () => { options.actions.save(); return true; } },
     { key: "Ctrl-,", preventDefault: true, run: () => { options.actions.settings(); return true; } },
+    { key: "Ctrl-=", preventDefault: true, run: () => { options.actions.increaseFontSize(); return true; } },
+    { key: "Ctrl--", preventDefault: true, run: () => { options.actions.decreaseFontSize(); return true; } },
     { key: "Alt-j", preventDefault: true, run: () => { options.actions.previousTab(); return true; } },
     { key: "Alt-k", preventDefault: true, run: () => { options.actions.nextTab(); return true; } },
     ...Array.from({ length: 9 }, (_, index) => ({
@@ -69,6 +76,7 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
       vim(),
       leaderCompartment.of(taskLeaderBinding(options.leader)),
       lineNumbersCompartment.of(options.lineNumbers ? lineNumbers() : []),
+      fontSizeCompartment.of(EditorView.theme({ ".cm-scroller": { fontSize: `${options.fontSize}px` } })),
       highlightSpecialChars(),
       history(),
       drawSelection(),
@@ -121,6 +129,9 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
     },
     setLineNumbers(enabled) {
       view.dispatch({ effects: lineNumbersCompartment.reconfigure(enabled ? lineNumbers() : []) });
+    },
+    setFontSize(fontSize) {
+      view.dispatch({ effects: fontSizeCompartment.reconfigure(EditorView.theme({ ".cm-scroller": { fontSize: `${fontSize}px` } })) });
     },
     focus: () => view.focus(),
     destroy: () => view.destroy(),

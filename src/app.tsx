@@ -2,6 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Index, createSignal, onCleanup, onMount } from "solid-js";
 import { render } from "solid-js/web";
 import { createEditor, type EditorOptions, type MarkdownEditor } from "./editor/createEditor";
+import { DEFAULT_FONT_SIZE, loadFontSize, normalizeFontSize, saveFontSize } from "./editor/fontSizePreference";
 import { describeLeader, loadLeader, normalizeLeader, saveLeader } from "./editor/leaderPreference";
 import { loadLineNumbers, saveLineNumbers } from "./editor/lineNumberPreference";
 import { DocumentController, type DocumentState } from "./file/documentController";
@@ -22,6 +23,7 @@ markdown-thing README.md
 - Press \`Esc\` to return to Normal mode
 - Press **Ctrl+S** to save
 - Press **Ctrl+,** for settings
+- Press **Ctrl+=** / **Ctrl+-** to change the font size
 - Press **Alt+J** / **Alt+K** to switch tabs
 `;
 
@@ -63,6 +65,7 @@ function App(props: { dependencies: AppDependencies }) {
   const [resolvedTheme, setResolvedTheme] = createSignal<ResolvedTheme>("light");
   const [leader, setLeader] = createSignal("\\");
   const [showLineNumbers, setShowLineNumbers] = createSignal(false);
+  const [fontSize, setFontSize] = createSignal(DEFAULT_FONT_SIZE);
   const [capturingLeader, setCapturingLeader] = createSignal(false);
 
   let editorHost!: HTMLElement;
@@ -90,6 +93,13 @@ function App(props: { dependencies: AppDependencies }) {
 
   const openSettings = (): void => {
     if (!settings.open) settings.showModal();
+  };
+
+  const updateFontSize = (value: number): void => {
+    const next = normalizeFontSize(value);
+    setFontSize(next);
+    saveFontSize(next);
+    editor?.setFontSize(next);
   };
 
   const updateState = (state: DocumentState): void => {
@@ -129,6 +139,7 @@ function App(props: { dependencies: AppDependencies }) {
     setResolvedTheme(themes.resolved);
     setLeader(loadLeader());
     setShowLineNumbers(loadLineNumbers());
+    setFontSize(loadFontSize());
 
     editor = props.dependencies.createEditor({
       parent: editorHost,
@@ -136,9 +147,12 @@ function App(props: { dependencies: AppDependencies }) {
       theme: themes.resolved,
       leader: leader(),
       lineNumbers: showLineNumbers(),
+      fontSize: fontSize(),
       actions: {
         save: () => { void controller?.save(); },
         settings: openSettings,
+        increaseFontSize: () => updateFontSize(fontSize() + 1),
+        decreaseFontSize: () => updateFontSize(fontSize() - 1),
         nextTab: () => controller?.switchRelative(1),
         previousTab: () => controller?.switchRelative(-1),
         selectTab: (index) => controller?.switchToIndex(index),
@@ -210,6 +224,10 @@ function App(props: { dependencies: AppDependencies }) {
     editor?.setLineNumbers(enabled);
   };
 
+  const changeFontSize = (event: Event): void => {
+    updateFontSize(Number((event.currentTarget as HTMLSelectElement).value));
+  };
+
   const captureLeader = (event: KeyboardEvent): void => {
     if (!capturingLeader() || event.ctrlKey || event.altKey || event.metaKey) return;
     const nextLeader = normalizeLeader(event.key);
@@ -274,6 +292,14 @@ function App(props: { dependencies: AppDependencies }) {
                 <option value="system">System</option>
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
+              </select>
+            </label>
+            <label class="setting-row" for="font-size">
+              <span><strong>Font size</strong><small>Change with Ctrl+= and Ctrl+-.</small></span>
+              <select id="font-size" aria-label="Editor font size" value={fontSize()} onChange={changeFontSize}>
+                {Array.from({ length: 13 }, (_, index) => index + 12).map((size) => (
+                  <option value={size}>{size} px</option>
+                ))}
               </select>
             </label>
             <label class="setting-row" for="line-numbers">

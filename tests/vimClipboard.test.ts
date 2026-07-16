@@ -41,9 +41,12 @@ function create(source: string): MarkdownEditor {
     theme: "light",
     leader: "\\",
     lineNumbers: false,
+    fontSize: 16,
     actions: {
       save: () => undefined,
       settings: () => undefined,
+      increaseFontSize: () => undefined,
+      decreaseFontSize: () => undefined,
       nextTab: () => undefined,
       previousTab: () => undefined,
       selectTab: () => undefined,
