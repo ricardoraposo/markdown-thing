@@ -82,7 +82,14 @@ cargo test --manifest-path src-tauri/Cargo.toml
 pnpm run tauri:build
 ```
 
-Linux bundles are written below `src-tauri/target/release/bundle/`.
+Linux bundles are written below `src-tauri/target/release/bundle/`. To publish a release, update the matching version in `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`, commit the change, then push a `vMAJOR.MINOR.PATCH` tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow validates that the tag and all three versions match, runs the frontend and Rust checks, and publishes the `.deb`, `.rpm`, and `.AppImage` bundles to a GitHub Release with generated notes.
 
 ## MVP limits
 
