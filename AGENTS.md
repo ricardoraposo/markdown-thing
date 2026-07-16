@@ -54,4 +54,24 @@ For packaging changes, also run:
 pnpm run tauri:build
 ```
 
+## Releases
+
+Ordinary commits and pushes do not require a version change. Update versions only when preparing a tagged release.
+
+For every release, set the same semantic version in:
+
+- `package.json`
+- `src-tauri/tauri.conf.json`
+- `src-tauri/Cargo.toml`
+
+Commit and push those version changes before creating and pushing a matching `vMAJOR.MINOR.PATCH` tag. For example:
+
+```bash
+git tag -a v0.1.1 -m "Release v0.1.1"
+git push origin main
+git push origin v0.1.1
+```
+
+Pushing the tag triggers `.github/workflows/release.yml`, which validates that all three versions match the tag, creates the GitHub Release, and uploads the `.deb`, `.rpm`, and `.AppImage` bundles. Do not manually create the GitHub Release first.
+
 Use strict TypeScript without suppressing errors. Format Rust with `cargo fmt`, keep Clippy warning-free, and add focused tests for source preservation, selection boundaries, cancellation/error behavior, and native path validation.
