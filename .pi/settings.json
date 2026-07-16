@@ -1,0 +1,7 @@
+{
+  "packages": [
+    "npm:@arvoretech/pi-worktree",
+    "npm:pi-mcp-adapter",
+    "npm:pi-subagents"
+  ]
+}
