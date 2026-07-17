@@ -9,3 +9,6 @@ src-tauri/target/
 .vscode/
 .pi/npm/
 .pi-subagents/
+.pi/worktree-sessions/
+
+.worktrees/
