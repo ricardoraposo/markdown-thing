@@ -1,7 +1,7 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { Table, TaskList } from "@lezer/markdown";
-import { bracketMatching, defaultHighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/language";
+import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { Compartment, EditorState, Prec, StateEffect } from "@codemirror/state";
 import { drawSelection, dropCursor, highlightSpecialChars, keymap, lineNumbers, EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
@@ -88,7 +88,6 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
       dropCursor(),
       EditorState.allowMultipleSelections.of(true),
       indentOnInput(),
-      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       bracketMatching(),
       keymap.of([...defaultKeymap, ...historyKeymap]),
       markdown({ extensions: [TaskList, Table] }),

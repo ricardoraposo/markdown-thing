@@ -1,7 +1,56 @@
 import { WidgetType } from "@codemirror/view";
+import { getEmberPalette } from "../../theme/emberPalette";
 import { loadMermaid } from "../mermaidLoader";
 
 let renderSequence = 0;
+
+export function emberMermaidConfig(theme: "light" | "dark") {
+  const palette = getEmberPalette(theme);
+  return {
+    startOnLoad: false,
+    securityLevel: "strict" as const,
+    htmlLabels: false,
+    suppressErrorRendering: true,
+    theme: "base" as const,
+    themeVariables: {
+      darkMode: theme === "dark",
+      background: palette.bg,
+      primaryColor: palette.base2,
+      primaryTextColor: palette.fg,
+      primaryBorderColor: palette.base7,
+      secondaryColor: palette.bgAlt,
+      secondaryTextColor: palette.fg,
+      secondaryBorderColor: palette.base7,
+      tertiaryColor: palette.base3,
+      tertiaryTextColor: palette.fg,
+      tertiaryBorderColor: palette.base7,
+      lineColor: palette.fgAlt,
+      textColor: palette.fg,
+      mainBkg: palette.base2,
+      secondBkg: palette.bgAlt,
+      border1: palette.base7,
+      border2: palette.base7,
+      noteBkgColor: palette.base2,
+      noteTextColor: palette.fg,
+      noteBorderColor: palette.gold,
+      clusterBkg: palette.base0,
+      clusterBorder: palette.base7,
+      actorBkg: palette.base2,
+      actorBorder: palette.coral,
+      actorTextColor: palette.fg,
+      signalColor: palette.fgAlt,
+      signalTextColor: palette.fg,
+      labelBoxBkgColor: palette.base2,
+      labelBoxBorderColor: palette.base7,
+      labelTextColor: palette.fg,
+      loopTextColor: palette.fg,
+      activationBkgColor: palette.base3,
+      activationBorderColor: palette.coral,
+      sequenceNumberColor: palette.bg,
+      fontFamily: "ui-sans-serif, system-ui, sans-serif",
+    },
+  };
+}
 
 export class MermaidWidget extends WidgetType {
   constructor(readonly source: string, readonly theme: "light" | "dark") { super(); }
@@ -17,7 +66,7 @@ export class MermaidWidget extends WidgetType {
     container.textContent = "Rendering diagram…";
     const token = ++renderSequence;
     void loadMermaid().then(async (mermaid) => {
-      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", htmlLabels: false, suppressErrorRendering: true, theme: this.theme === "dark" ? "dark" : "default" });
+      mermaid.initialize(emberMermaidConfig(this.theme));
       const result = await mermaid.render(`markdown-thing-${token}`, this.source);
       if (container.isConnected) container.innerHTML = result.svg;
     }).catch((error: unknown) => {

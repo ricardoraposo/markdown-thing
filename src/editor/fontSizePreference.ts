@@ -1,6 +1,6 @@
 const STORAGE_KEY = "markdown-thing-font-size";
 
-export const DEFAULT_FONT_SIZE = 16;
+export const DEFAULT_FONT_SIZE = 17;
 export const MIN_FONT_SIZE = 12;
 export const MAX_FONT_SIZE = 24;
 

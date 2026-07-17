@@ -29,6 +29,9 @@ importers:
       '@lezer/common':
         specifier: ^1.2.3
         version: 1.5.2
+      '@lezer/highlight':
+        specifier: ^1.2.3
+        version: 1.2.3
       '@lezer/markdown':
         specifier: ^1.7.2
         version: 1.7.2
@@ -42,9 +45,6 @@ importers:
         specifier: ^4.3.1
         version: 4.3.1
       '@shikijs/langs':
-        specifier: ^4.3.1
-        version: 4.3.1
-      '@shikijs/themes':
         specifier: ^4.3.1
         version: 4.3.1
       '@tauri-apps/api':
@@ -717,10 +717,6 @@ packages:
 
   '@shikijs/primitive@4.3.1':
     resolution: {integrity: sha512-CXQRQOYy1leqQ8ceTeJdmXv/bsUY++6QyLpXJ94LZAAYj5X2SKRdc5ipguv4NPyGVKItB2PPwUpRNe0Sjh5S1A==}
-    engines: {node: '>=20'}
-
-  '@shikijs/themes@4.3.1':
-    resolution: {integrity: sha512-dgpoJ4WqNi2yTmizQHBJ5zcX6j2lE6icN/0yt4l1kkf16jrY/pwPLoTb1ETsWMz0OBLf9ZNvwmxft+cH+N9qSA==}
     engines: {node: '>=20'}
 
   '@shikijs/types@4.3.1':
@@ -2625,10 +2621,6 @@ snapshots:
       '@shikijs/types': 4.3.1
       '@shikijs/vscode-textmate': 10.0.2
       '@types/hast': 3.0.5
-
-  '@shikijs/themes@4.3.1':
-    dependencies:
-      '@shikijs/types': 4.3.1
 
   '@shikijs/types@4.3.1':
     dependencies:

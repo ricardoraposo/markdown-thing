@@ -291,9 +291,9 @@ function App(props: { dependencies: AppDependencies }) {
             <div><h3>Appearance</h3><p>Choose how the editor looks.</p></div>
             <label class="setting-row" for="theme"><span>Theme</span>
               <select id="theme" aria-label="Color theme" value={themePreference()} onChange={changeTheme}>
-                <option value="system">System</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
+                <option value="system">System (Ember)</option>
+                <option value="light">Ember Light</option>
+                <option value="dark">Ember Dark</option>
               </select>
             </label>
             <label class="setting-row" for="font-size">

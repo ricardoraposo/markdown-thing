@@ -9,10 +9,17 @@ describe("lazy Shiki highlighter", () => {
     expect(result).not.toBeNull();
     expect(result?.lines.map((line) => line.map(({ content }) => content).join("")).join("\n")).toBe(source);
     expect(result?.lines.flat().some(({ color }) => Boolean(color))).toBe(true);
+    expect(result?.foreground).toBe("#d8d0c0");
+    expect(result?.background).toBe("#1c1b19");
+    expect(result?.lines.flat().find(({ content }) => content === "def")?.color?.toLowerCase()).toBe("#e08060");
   });
 
   it("supports common aliases and skips unknown languages", async () => {
-    expect(await highlightCode("const value: number = 1", "ts", "light")).not.toBeNull();
+    const lightResult = await highlightCode("const value: number = 1", "ts", "light");
+    expect(lightResult).not.toBeNull();
+    expect(lightResult?.foreground).toBe("#282418");
+    expect(lightResult?.background).toBe("#e6dac4");
+    expect(lightResult?.lines.flat().find(({ content }) => content === "const")?.color?.toLowerCase()).toBe("#9b442b");
     expect(await highlightCode("anything", "made-up-language", "dark")).toBeNull();
   });
 });
