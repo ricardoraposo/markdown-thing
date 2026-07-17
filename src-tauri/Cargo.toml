@@ -1,6 +1,6 @@
 [package]
 name = "markdown-thing"
-version = "0.1.2"
+version = "0.1.3"
 description = "A Vim-first live Markdown editor"
 authors = ["Markdown Thing contributors"]
 edition = "2021"
