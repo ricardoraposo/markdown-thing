@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
 import { markdown } from "@codemirror/lang-markdown";
-import { EditorState } from "@codemirror/state";
+import { EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { TaskList } from "@lezer/markdown";
 import { afterEach, describe, expect, it } from "vitest";
+import { livePreview } from "../src/editor/livePreview";
 import { taskToggleChange } from "../src/editor/taskToggle";
 import { taskLeaderBinding } from "../src/editor/vimTaskMapping";
 
@@ -39,6 +40,34 @@ describe("task Vim mapping", () => {
     press("x");
 
     expect(view.state.doc.toString()).toBe("- [x] task");
+  });
+
+  it("updates a persistent preview checkbox from the task text", () => {
+    const doc = "- [ ] task";
+    view = new EditorView({
+      state: EditorState.create({
+        doc,
+        selection: EditorSelection.cursor(doc.length),
+        extensions: [vim(), markdown({ extensions: [TaskList] }), taskLeaderBinding("\\"), livePreview],
+      }),
+      parent: document.body,
+    });
+
+    const checkbox = view.dom.querySelector(".md-task-checkbox");
+    expect(checkbox?.getAttribute("aria-checked")).toBe("false");
+    press("\\");
+    press("x");
+
+    expect(view.state.doc.toString()).toBe("- [x] task");
+    expect(view.dom.querySelector(".md-task-checkbox")).toBe(checkbox);
+    expect(checkbox?.getAttribute("aria-checked")).toBe("true");
+
+    press("\\");
+    press("x");
+
+    expect(view.state.doc.toString()).toBe("- [ ] task");
+    expect(view.dom.querySelector(".md-task-checkbox")).toBe(checkbox);
+    expect(checkbox?.getAttribute("aria-checked")).toBe("false");
   });
 
   it("does not intercept the leader sequence in Insert mode", () => {

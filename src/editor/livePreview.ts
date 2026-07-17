@@ -28,11 +28,16 @@ export function buildDecorations(state: EditorState): DecorationSet {
   const source = state.doc.toString();
   const context = state.field(contextField);
   const selected = selections(state);
+  const selectedText = selected.filter((selection) => selection.from !== selection.to);
   const ranges: Array<ReturnType<Decoration["range"]>> = [];
 
   for (const construct of markdownConstructs(source, syntaxTree(state))) {
     const atomicBlock = construct.kind === "table" || construct.kind === "codeBlock";
-    const active = atomicBlock ? blockRangeIsActive(construct, selected) : rangeIsActive(construct, selected);
+    const active = construct.kind === "task"
+      ? rangeIsActive(construct, selectedText)
+      : atomicBlock
+        ? blockRangeIsActive(construct, selected)
+        : rangeIsActive(construct, selected);
     if (construct.kind === "heading") {
       ranges.push(Decoration.mark({ class: `md-heading md-heading-${construct.level ?? 1}` }).range(construct.from, construct.to));
     } else if (construct.kind === "emphasis" || construct.kind === "strong") {

@@ -483,8 +483,7 @@ export class TaskWidget extends WidgetType {
     checkbox.type = "button";
     checkbox.className = "md-task-checkbox";
     checkbox.setAttribute("role", "checkbox");
-    checkbox.setAttribute("aria-checked", String(this.checked));
-    checkbox.setAttribute("aria-label", this.checked ? "Mark task incomplete" : "Mark task complete");
+    this.updateDOM(checkbox);
     checkbox.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -492,5 +491,15 @@ export class TaskWidget extends WidgetType {
       view.focus();
     });
     return checkbox;
+  }
+
+  updateDOM(dom: HTMLElement): boolean {
+    if (dom.tagName !== "BUTTON" || !dom.classList.contains("md-task-checkbox")) return false;
+    const previousTogglePos = dom.dataset.mdTaskTogglePos;
+    if (previousTogglePos !== undefined && Number(previousTogglePos) !== this.togglePos) return false;
+    dom.dataset.mdTaskTogglePos = String(this.togglePos);
+    dom.setAttribute("aria-checked", String(this.checked));
+    dom.setAttribute("aria-label", this.checked ? "Mark task incomplete" : "Mark task complete");
+    return true;
   }
 }

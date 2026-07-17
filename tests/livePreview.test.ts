@@ -93,6 +93,16 @@ describe("livePreview", () => {
     expect(checkbox?.getAttribute("aria-checked")).toBe("false");
     checkbox?.click();
     expect(view.state.doc.toString()).toBe("- item\n\n- [x] task\n\n---\n\nTail");
+
+    const taskText = view.state.doc.toString().indexOf("task");
+    view.dispatch({ selection: EditorSelection.cursor(taskText + 2) });
+    expect(view.dom.querySelector(".md-task-checkbox")).not.toBeNull();
+    expect(view.contentDOM.textContent).not.toContain("[x]");
+
+    const taskMarker = view.state.doc.toString().indexOf("[x]");
+    view.dispatch({ selection: EditorSelection.cursor(taskMarker + 1) });
+    expect(view.dom.querySelector(".md-task-checkbox")).not.toBeNull();
+    expect(view.contentDOM.textContent).not.toContain("[x]");
   });
 
   it("edits raw cell Markdown inside a rendered GFM table", () => {
