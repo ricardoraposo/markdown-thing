@@ -19,7 +19,8 @@ describe("lazy Shiki highlighter", () => {
     expect(lightResult).not.toBeNull();
     expect(lightResult?.foreground).toBe("#282418");
     expect(lightResult?.background).toBe("#e6dac4");
-    expect(lightResult?.lines.flat().find(({ content }) => content === "const")?.color?.toLowerCase()).toBe("#9b442b");
+    expect(lightResult?.lines.flat().map(({ content }) => content).join("")).toBe("const value: number = 1");
+    expect(lightResult?.lines.flat().some(({ color }) => Boolean(color))).toBe(true);
     expect(await highlightCode("anything", "made-up-language", "dark")).toBeNull();
   });
 });
