@@ -1,6 +1,12 @@
 # Pi extension
 
-Load the extension directly while testing:
+Install the extension bundled into a Markdown Thing release:
+
+```bash
+markdown-thing install-pi-extension
+```
+
+Run `/reload` in an existing Pi process after installation. Load the source directly while developing the integration:
 
 ```bash
 pi -e /path/to/markdown-thing/pi-extension/index.ts

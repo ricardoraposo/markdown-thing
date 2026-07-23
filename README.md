@@ -69,17 +69,23 @@ Use `stream` when Markdown arrives incrementally. The same temporary tab updates
 ) | markdown-thing stream --title "Live analysis"
 ```
 
-The included Pi extension starts this stream only after an explicit command. Load it directly during development:
+The included Pi extension starts this stream only after an explicit command. Install the extension into `~/.pi/agent/extensions/`:
 
 ```bash
-pi -e /path/to/markdown-thing/pi-extension/index.ts
+markdown-thing install-pi-extension
 ```
 
-Then enable or disable future response streams inside Pi:
+The installer honors `PI_CODING_AGENT_DIR` and refuses to replace a different existing extension unless `--force` is passed. Run `/reload` in an existing Pi process after installation, then enable or disable future response streams:
 
 ```text
 /markdown-thing
 /markdown-thing off
+```
+
+Load the source directly while developing the integration:
+
+```bash
+pi -e /path/to/markdown-thing/pi-extension/index.ts
 ```
 
 Set `MARKDOWN_THING_BIN` before starting Pi when the executable is not available as `markdown-thing` on `PATH`.

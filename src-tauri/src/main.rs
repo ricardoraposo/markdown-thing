@@ -4,6 +4,15 @@ const READY_ARGUMENT_PREFIX: &str = "--markdown-thing-ready=";
 const MAX_SHOW_BYTES: u64 = 10 * 1024 * 1024;
 #[cfg(any(test, all(unix, not(debug_assertions))))]
 const MAX_TITLE_BYTES: usize = 256;
+#[cfg(any(test, all(unix, not(debug_assertions))))]
+const PI_EXTENSION_SOURCE: &str = include_str!("../../pi-extension/index.ts");
+
+#[cfg(any(test, all(unix, not(debug_assertions))))]
+#[derive(Debug, PartialEq, Eq)]
+enum InstallOutcome {
+    Installed(std::path::PathBuf),
+    Current(std::path::PathBuf),
+}
 
 #[cfg(any(test, all(unix, not(debug_assertions))))]
 #[derive(Debug, PartialEq, Eq)]
@@ -17,6 +26,105 @@ fn is_reserved_argument(argument: &std::ffi::OsStr) -> bool {
     argument
         .to_string_lossy()
         .starts_with(READY_ARGUMENT_PREFIX)
+}
+
+#[cfg(any(test, all(unix, not(debug_assertions))))]
+fn install_pi_extension_force(arguments: &[std::ffi::OsString]) -> Result<Option<bool>, String> {
+    if arguments
+        .first()
+        .is_none_or(|argument| argument != "install-pi-extension")
+    {
+        return Ok(None);
+    }
+    match arguments.get(1..) {
+        Some([]) => Ok(Some(false)),
+        Some([force]) if force == "--force" => Ok(Some(true)),
+        Some([option]) => Err(format!(
+            "Unknown install-pi-extension option: {}",
+            option.to_string_lossy()
+        )),
+        _ => Err("install-pi-extension accepts only --force".to_owned()),
+    }
+}
+
+#[cfg(any(test, all(unix, not(debug_assertions))))]
+fn install_pi_extension_at(
+    agent_directory: &std::path::Path,
+    force: bool,
+) -> Result<InstallOutcome, String> {
+    use std::fs::{self, OpenOptions};
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let extensions_directory = agent_directory.join("extensions");
+    fs::create_dir_all(&extensions_directory)
+        .map_err(|error| format!("Could not create Pi extensions directory: {error}"))?;
+    let destination = extensions_directory.join("markdown-thing.ts");
+    match fs::symlink_metadata(&destination) {
+        Ok(metadata) => {
+            if metadata.file_type().is_file()
+                && fs::read(&destination)
+                    .is_ok_and(|content| content == PI_EXTENSION_SOURCE.as_bytes())
+            {
+                return Ok(InstallOutcome::Current(destination));
+            }
+            if !force {
+                return Err(format!(
+                    "{} already exists; pass --force to replace it",
+                    destination.display()
+                ));
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(format!(
+                "Could not inspect {}: {error}",
+                destination.display()
+            ))
+        }
+    }
+
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let temporary = extensions_directory.join(format!(
+        ".markdown-thing.ts.{}-{nonce}.tmp",
+        std::process::id()
+    ));
+    let result = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&temporary)
+            .map_err(|error| format!("Could not create Pi extension: {error}"))?;
+        file.write_all(PI_EXTENSION_SOURCE.as_bytes())
+            .and_then(|()| file.sync_all())
+            .map_err(|error| format!("Could not write Pi extension: {error}"))?;
+        fs::rename(&temporary, &destination)
+            .map_err(|error| format!("Could not install Pi extension: {error}"))?;
+        Ok(InstallOutcome::Installed(destination))
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+#[cfg(all(unix, not(debug_assertions)))]
+fn install_pi_extension(force: bool) -> Result<InstallOutcome, String> {
+    let agent_directory = std::env::var_os("PI_CODING_AGENT_DIR")
+        .filter(|value| !value.is_empty())
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .filter(|value| !value.is_empty())
+                .map(|home| std::path::PathBuf::from(home).join(".pi/agent"))
+        })
+        .ok_or_else(|| "Could not determine the Pi agent directory".to_owned())?;
+    install_pi_extension_at(&agent_directory, force)
 }
 
 #[cfg(any(test, all(unix, not(debug_assertions))))]
@@ -142,6 +250,29 @@ fn main() {
     #[cfg(all(unix, not(debug_assertions)))]
     if std::env::var_os("MARKDOWN_THING_GUI").is_none() {
         let arguments: Vec<_> = std::env::args_os().skip(1).collect();
+        let install = match install_pi_extension_force(&arguments) {
+            Ok(install) => install,
+            Err(error) => {
+                eprintln!("Could not install Pi extension: {error}");
+                std::process::exit(2);
+            }
+        };
+        if let Some(force) = install {
+            match install_pi_extension(force) {
+                Ok(InstallOutcome::Installed(path)) => {
+                    println!("Installed Pi extension at {}", path.display());
+                    println!("Run /reload in Pi, then /markdown-thing to enable streaming.");
+                }
+                Ok(InstallOutcome::Current(path)) => {
+                    println!("Pi extension is already current at {}", path.display());
+                }
+                Err(error) => {
+                    eprintln!("Could not install Pi extension: {error}");
+                    std::process::exit(1);
+                }
+            }
+            return;
+        }
         let handoff = match handoff_command(&arguments) {
             Ok(handoff) => handoff,
             Err(error) => {
@@ -206,7 +337,23 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ffi::{OsStr, OsString};
+    use std::{
+        ffi::{OsStr, OsString},
+        fs,
+        os::unix::fs::symlink,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn temporary_agent_directory() -> std::path::PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "markdown-thing-pi-extension-test-{}-{nonce}",
+            std::process::id()
+        ))
+    }
 
     #[test]
     fn recognizes_reserved_readiness_arguments() {
@@ -236,6 +383,73 @@ mod tests {
             handoff_command(&[OsString::from("notes.md")]).unwrap(),
             None
         );
+    }
+
+    #[test]
+    fn parses_pi_extension_install_command() {
+        assert_eq!(
+            install_pi_extension_force(&[OsString::from("install-pi-extension")]).unwrap(),
+            Some(false)
+        );
+        assert_eq!(
+            install_pi_extension_force(&[
+                OsString::from("install-pi-extension"),
+                OsString::from("--force")
+            ])
+            .unwrap(),
+            Some(true)
+        );
+        assert!(install_pi_extension_force(&[
+            OsString::from("install-pi-extension"),
+            OsString::from("--unknown")
+        ])
+        .is_err());
+        assert_eq!(
+            install_pi_extension_force(&[OsString::from("show")]).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn installs_and_safely_replaces_the_pi_extension() {
+        let agent_directory = temporary_agent_directory();
+        let first = install_pi_extension_at(&agent_directory, false).unwrap();
+        let destination = agent_directory.join("extensions/markdown-thing.ts");
+        assert_eq!(first, InstallOutcome::Installed(destination.clone()));
+        assert_eq!(
+            fs::read_to_string(&destination).unwrap(),
+            PI_EXTENSION_SOURCE
+        );
+        assert_eq!(
+            install_pi_extension_at(&agent_directory, false).unwrap(),
+            InstallOutcome::Current(destination.clone())
+        );
+
+        fs::write(&destination, "existing extension").unwrap();
+        assert!(install_pi_extension_at(&agent_directory, false).is_err());
+        assert_eq!(
+            install_pi_extension_at(&agent_directory, true).unwrap(),
+            InstallOutcome::Installed(destination.clone())
+        );
+        assert_eq!(
+            fs::read_to_string(&destination).unwrap(),
+            PI_EXTENSION_SOURCE
+        );
+
+        fs::remove_file(&destination).unwrap();
+        let symlink_target = agent_directory.join("linked-extension.ts");
+        fs::write(&symlink_target, PI_EXTENSION_SOURCE).unwrap();
+        symlink(&symlink_target, &destination).unwrap();
+        assert!(install_pi_extension_at(&agent_directory, false).is_err());
+        assert_eq!(
+            install_pi_extension_at(&agent_directory, true).unwrap(),
+            InstallOutcome::Installed(destination.clone())
+        );
+        assert!(fs::symlink_metadata(&destination)
+            .unwrap()
+            .file_type()
+            .is_file());
+        fs::remove_dir_all(agent_directory).unwrap();
     }
 
     #[test]
