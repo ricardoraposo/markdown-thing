@@ -119,6 +119,7 @@ function App(props: { dependencies: AppDependencies }) {
         for (const item of items) {
           if (item.type === "document") controller?.openDocument(item.payload);
           else if (item.type === "ephemeral") controller?.openEphemeral(item.payload);
+          else if (item.type === "ephemeralAppend") controller?.appendEphemeral(item.payload);
           else showMessage(item.payload, true);
         }
       } catch (error) {
@@ -167,6 +168,7 @@ function App(props: { dependencies: AppDependencies }) {
       files: props.dependencies.files,
       getText: () => editor!.text(),
       setText: (text) => editor!.replace(text),
+      appendText: (text) => editor!.append(text),
       onState: updateState,
       onError: (error) => showMessage(error, true),
     });

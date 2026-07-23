@@ -57,6 +57,39 @@ printf '# Architecture analysis\n\n- First finding\n- Second finding\n' | \
 
 `--title` is optional and defaults to `Agent response`. Input must be UTF-8 and is limited to 10 MiB. Temporary agent tabs can be edited during the session but cannot be saved; use an ordinary Markdown file when the output should become a persistent artifact.
 
+Use `stream` when Markdown arrives incrementally. The same temporary tab updates until stdin closes:
+
+```bash
+(
+  printf '# Live analysis\n\n'
+  sleep 1
+  printf -- '- First finding\n'
+  sleep 1
+  printf -- '- Second finding\n'
+) | markdown-thing stream --title "Live analysis"
+```
+
+The included Pi extension starts this stream only after an explicit command. Install the extension into `~/.pi/agent/extensions/`:
+
+```bash
+markdown-thing install-pi-extension
+```
+
+The installer honors `PI_CODING_AGENT_DIR` and refuses to replace a different existing extension unless `--force` is passed. Run `/reload` in an existing Pi process after installation, then enable or disable future response streams:
+
+```text
+/markdown-thing
+/markdown-thing off
+```
+
+Load the source directly while developing the integration:
+
+```bash
+pi -e /path/to/markdown-thing/pi-extension/index.ts
+```
+
+Set `MARKDOWN_THING_BIN` before starting Pi when the executable is not available as `markdown-thing` on `PATH`.
+
 The editor starts in Vim Normal mode.
 
 | Action | Shortcut |

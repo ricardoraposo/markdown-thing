@@ -19,6 +19,10 @@ function createFakeEditor(): FakeEditor {
     view: {} as MarkdownEditor["view"],
     text: vi.fn(() => source),
     replace: vi.fn((text: string) => { source = text; }),
+    append: vi.fn((text: string) => {
+      source += text;
+      captured?.onChange(source);
+    }),
     setContext: vi.fn(),
     setLeader: vi.fn(),
     setLineNumbers: vi.fn(),
@@ -204,7 +208,13 @@ describe("Solid application shell", () => {
       payload: {
         id: "agent-1",
         title: "Architecture analysis",
-        content: "# Architecture\n\n- Finding",
+        content: "# Architecture",
+      },
+    }, {
+      type: "ephemeralAppend",
+      payload: {
+        id: "agent-1",
+        content: "\n\n- Finding",
       },
     }];
     const files = adapter({
@@ -218,7 +228,9 @@ describe("Solid application shell", () => {
     mounted.push(subject.dispose);
 
     await vi.waitFor(() => expect(subject.root.querySelector("#document-label")?.textContent).toBe("Architecture analysis"));
-    expect(subject.fake.editor.replace).toHaveBeenLastCalledWith("# Architecture\n\n- Finding");
+    expect(subject.fake.editor.replace).toHaveBeenLastCalledWith("# Architecture");
+    expect(subject.fake.editor.append).toHaveBeenLastCalledWith("\n\n- Finding");
+    expect(subject.fake.editor.text()).toBe("# Architecture\n\n- Finding");
     expect(document.title).toBe("Architecture analysis — Markdown Thing");
     subject.fake.options().actions.save();
     await vi.waitFor(() => expect(subject.root.querySelector("#message")?.textContent)

@@ -1,4 +1,4 @@
-import type { EphemeralDocument, FileAdapter, OpenedDocument } from "./tauriFiles";
+import type { EphemeralAppend, EphemeralDocument, FileAdapter, OpenedDocument } from "./tauriFiles";
 
 export interface DocumentTabState {
   id: number;
@@ -21,6 +21,7 @@ export interface DocumentControllerOptions {
   files: FileAdapter;
   getText(): string;
   setText(text: string): void;
+  appendText(text: string): void;
   onState(state: DocumentState): void;
   onError(message: string): void;
 }
@@ -140,6 +141,16 @@ export class DocumentController {
     this.activeId = tab.id;
     this.options.setText(tab.text);
     this.emit();
+  }
+
+  appendEphemeral(update: EphemeralAppend): void {
+    if (this.disposed || update.content.length === 0) return;
+    const tab = this.tabs.find((candidate) => candidate.key === `ephemeral:${update.id}`);
+    if (!tab) return;
+    if (tab.id === this.activeId) this.captureActiveText();
+    tab.text += update.content;
+    tab.savedText += update.content;
+    if (tab.id === this.activeId) this.options.appendText(update.content);
   }
 
   switchTo(tabId: number): void {

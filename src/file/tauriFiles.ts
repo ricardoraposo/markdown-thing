@@ -15,9 +15,15 @@ export interface EphemeralDocument {
   content: string;
 }
 
+export interface EphemeralAppend {
+  id: string;
+  content: string;
+}
+
 export type LaunchItem =
   | { type: "document"; payload: OpenedDocument }
   | { type: "ephemeral"; payload: EphemeralDocument }
+  | { type: "ephemeralAppend"; payload: EphemeralAppend }
   | { type: "error"; payload: string };
 
 export interface FileAdapter {
