@@ -39,6 +39,7 @@ export interface MarkdownEditor {
   view: EditorView;
   text(): string;
   replace(text: string): void;
+  append(text: string): void;
   setContext(path: string | null, theme: ResolvedTheme): void;
   setLeader(leader: string): void;
   setLineNumbers(enabled: boolean): void;
@@ -119,6 +120,9 @@ export function createEditor(options: EditorOptions): MarkdownEditor {
         selection: { anchor: 0 },
         effects: lineSeparatorCompartment.reconfigure(EditorState.lineSeparator.of(prepared.lineSeparator)),
       });
+    },
+    append(text) {
+      view.dispatch({ changes: { from: view.state.doc.length, insert: text } });
     },
     setContext(path, theme) {
       if (path === currentPath && theme === currentTheme) return;

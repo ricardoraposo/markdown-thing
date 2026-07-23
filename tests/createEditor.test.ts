@@ -66,4 +66,34 @@ describe("createEditor", () => {
     editor.setContext("/notes/file.md", "light");
     expect(dispatch).toHaveBeenCalledTimes(afterFirstContext + 1);
   });
+
+  it("appends streamed text without moving the selection", () => {
+    const onChange = vi.fn();
+    editor = createEditor({
+      parent: document.body,
+      initialDocument: "first",
+      theme: "light",
+      leader: "\\",
+      lineNumbers: false,
+      fontSize: 16,
+      actions: {
+        save: () => undefined,
+        settings: () => undefined,
+        increaseFontSize: () => undefined,
+        decreaseFontSize: () => undefined,
+        nextTab: () => undefined,
+        previousTab: () => undefined,
+        selectTab: () => undefined,
+      },
+      onChange,
+      onCursor: () => undefined,
+    });
+    editor.view.dispatch({ selection: { anchor: 2 } });
+
+    editor.append(" second");
+
+    expect(editor.text()).toBe("first second");
+    expect(editor.view.state.selection.main.head).toBe(2);
+    expect(onChange).toHaveBeenLastCalledWith("first second");
+  });
 });

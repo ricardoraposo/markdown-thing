@@ -12,6 +12,7 @@ function setup(files: FileAdapter, initial = "initial") {
     files,
     getText: () => text,
     setText: (value) => { text = value; },
+    appendText: (value) => { text += value; },
     onState: (state) => states.push(state),
     onError: (error) => errors.push(error),
   });
@@ -77,6 +78,29 @@ describe("DocumentController", () => {
     await subject.controller.save();
     expect(subject.errors).toEqual(["Agent output is temporary and cannot be saved"]);
     expect(subject.controller.state.dirty).toBe(true);
+  });
+
+  it("appends streamed Markdown to the matching temporary tab", () => {
+    const subject = setup(adapter());
+    subject.controller.openEphemeral({ id: "stream", title: "Pi response", content: "# Response" });
+    subject.controller.appendEphemeral({ id: "stream", content: "\n\nFirst chunk" });
+    subject.controller.appendEphemeral({ id: "stream", content: " and second chunk" });
+
+    expect(subject.text()).toBe("# Response\n\nFirst chunk and second chunk");
+    expect(subject.controller.state.dirty).toBe(false);
+  });
+
+  it("keeps streaming into an inactive temporary tab", async () => {
+    const subject = setup(adapter({ initial: async () => ({ path: "/notes/active.md", content: "active" }) }));
+    await subject.controller.openInitial();
+    subject.controller.openEphemeral({ id: "stream", title: "Pi response", content: "first" });
+    const streamTab = subject.controller.state.tabs.find((tab) => tab.name === "Pi response")!;
+    subject.controller.switchToIndex(0);
+    subject.controller.appendEphemeral({ id: "stream", content: " second" });
+
+    expect(subject.text()).toBe("active");
+    subject.controller.switchTo(streamTab.id);
+    expect(subject.text()).toBe("first second");
   });
 
   it("keeps separate ephemeral responses with the same title", () => {
@@ -152,6 +176,7 @@ describe("DocumentController", () => {
       files: adapter(),
       getText: () => { reads += 1; return text; },
       setText: (value) => { text = value; },
+      appendText: (value) => { text += value; },
       onState: (state) => states.push(state),
       onError: () => undefined,
     });
@@ -216,6 +241,11 @@ describe("DocumentController", () => {
           doc: prepared.text,
           extensions: [EditorState.lineSeparator.of(prepared.lineSeparator)],
         });
+      },
+      appendText: (source) => {
+        editorState = editorState.update({
+          changes: { from: editorState.doc.length, insert: source },
+        }).state;
       },
       onState: () => undefined,
       onError: (error) => { throw new Error(error); },

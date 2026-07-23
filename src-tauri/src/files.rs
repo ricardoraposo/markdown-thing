@@ -9,7 +9,7 @@ use std::{
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 
-use crate::handoff::EphemeralDocument;
+use crate::handoff::{EphemeralAppend, EphemeralDocument};
 
 const MAX_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
 const READY_ARGUMENT_PREFIX: &str = "--markdown-thing-ready=";
@@ -53,6 +53,7 @@ pub struct StartupFile {
 pub enum LaunchItem {
     Document(OpenedDocument),
     Ephemeral(EphemeralDocument),
+    EphemeralAppend(EphemeralAppend),
     Error(String),
 }
 
